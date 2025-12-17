@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.navigation3.runtime)
     implementation(libs.navigation3.ui)
     implementation(libs.kotlinx.serialization.json)
+//    implementation("androidx.lifecycle:lifecycle-viewmodel-navigation3:1.0.0")
 
 
 

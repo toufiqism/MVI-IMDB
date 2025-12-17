@@ -3,7 +3,9 @@ package com.tofiq.mvi_imdb.data.mapper
 import com.tofiq.mvi_imdb.data.remote.dto.CastDto
 import com.tofiq.mvi_imdb.data.remote.dto.MovieDetailDto
 import com.tofiq.mvi_imdb.data.remote.dto.MovieDto
+import com.tofiq.mvi_imdb.data.remote.dto.PersonMovieCreditDto
 import com.tofiq.mvi_imdb.domain.model.Cast
+import com.tofiq.mvi_imdb.domain.model.CastMovie
 import com.tofiq.mvi_imdb.domain.model.Movie
 import com.tofiq.mvi_imdb.domain.model.MovieDetail
 
@@ -54,3 +56,24 @@ fun MovieDetailDto.toDomain(
     similarMovies = similarMovies,
     isFavorite = isFavorite
 )
+
+/**
+ * Maps PersonMovieCreditDto to CastMovie domain model.
+ * Handles null release dates and extracts year.
+ * 
+ * Requirements: 4.1, 4.2
+ */
+fun PersonMovieCreditDto.toCastMovie(): CastMovie {
+    val releaseDateValue = releaseDate
+    return CastMovie(
+        id = id,
+        title = title ?: "",
+        posterPath = posterPath,
+        releaseDate = releaseDateValue,
+        character = character,
+        voteAverage = voteAverage ?: 0.0,
+        releaseYear = releaseDateValue?.takeIf { it.length >= 4 }?.substring(0, 4) ?: ""
+    )
+}
+
+fun List<PersonMovieCreditDto>.toCastMovieList(): List<CastMovie> = map { it.toCastMovie() }

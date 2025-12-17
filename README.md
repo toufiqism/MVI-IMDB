@@ -1,6 +1,6 @@
 # MVI-IMDB 🎬
 
-A modern Android movie discovery app built with **Jetpack Compose**, **MVI architecture**, and **TMDB API**. Browse popular movies, search for titles, view detailed information, and save your favorites for offline access.
+A modern Android movie discovery app built with **Jetpack Compose**, **MVI architecture**, and **TMDB API**. Browse popular movies, search for titles, view detailed information, explore actor filmographies, and save your favorites for offline access.
 
 ## Features
 
@@ -8,6 +8,7 @@ A modern Android movie discovery app built with **Jetpack Compose**, **MVI archi
 - 👆 **Swipe Navigation** - Swipe left/right to switch between categories
 - 🔍 **Search** - Find movies by title with debounced search (300ms, min 2 chars)
 - 📖 **Movie Details** - View comprehensive movie info including cast, genres, and similar movies
+- 🎭 **Actor Filmography** - Tap on any cast member to explore all their movies
 - ❤️ **Favorites** - Save movies locally for quick access
 - 📴 **Offline Support** - Cached data available without internet
 - ♾️ **Infinite Scroll** - Automatic pagination when scrolling
@@ -16,9 +17,9 @@ A modern Android movie discovery app built with **Jetpack Compose**, **MVI archi
 
 ## Screenshots
 
-| Home | Search | Details | Favorites |
-|------|--------|---------|-----------|
-| Swipeable category tabs | Debounced search | Cast & similar movies | Saved movies |
+| Home | Search | Details | Cast Movies | Favorites |
+|------|--------|---------|-------------|-----------|
+| Swipeable category tabs | Debounced search | Cast & similar movies | Actor filmography | Saved movies |
 
 ---
 
@@ -77,12 +78,14 @@ com.tofiq.mvi_imdb/
 │   │   ├── Movie.kt
 │   │   ├── MovieDetail.kt
 │   │   ├── Cast.kt
+│   │   ├── CastMovie.kt     # Movie in actor's filmography
 │   │   └── Category.kt
 │   ├── repository/          # Repository interfaces (contracts)
 │   │   └── MovieRepository.kt
 │   └── usecase/             # Business logic operations
 │       ├── GetMoviesUseCase.kt
 │       ├── GetMovieDetailUseCase.kt
+│       ├── GetCastMoviesUseCase.kt
 │       ├── SearchMoviesUseCase.kt
 │       ├── GetFavoritesUseCase.kt
 │       └── ToggleFavoriteUseCase.kt
@@ -109,7 +112,12 @@ com.tofiq.mvi_imdb/
 │       │   └── HomeIntent.kt
 │       ├── detail/
 │       ├── search/
-│       └── favorites/
+│       ├── favorites/
+│       └── castmovies/      # Actor filmography screen
+│           ├── CastMoviesScreen.kt
+│           ├── CastMoviesViewModel.kt
+│           ├── CastMoviesState.kt
+│           └── CastMoviesIntent.kt
 │
 ├── di/                      # Dependency Injection (Hilt modules)
 │   ├── AppModule.kt
@@ -249,6 +257,9 @@ class RemoteDataSource @Inject constructor(
     
     suspend fun searchMovies(query: String, page: Int): MovieResponse =
         api.searchMovies(query = query, page = page)
+    
+    suspend fun getCastMovies(personId: Int): PersonMovieCreditsResponse =
+        api.getPersonMovieCredits(personId = personId)
 }
 
 // MovieApi.kt - Retrofit interface
@@ -258,6 +269,12 @@ interface MovieApi {
         @Query("api_key") apiKey: String = Constants.API_KEY,
         @Query("page") page: Int
     ): MovieResponse
+    
+    @GET("person/{person_id}/movie_credits")
+    suspend fun getPersonMovieCredits(
+        @Path("person_id") personId: Int,
+        @Query("api_key") apiKey: String = Constants.API_KEY
+    ): PersonMovieCreditsResponse
 }
 ```
 
@@ -400,6 +417,17 @@ data class Movie(
     val releaseYear: String,
     val formattedRating: String
 )
+
+// CastMovie.kt - Movie in an actor's filmography
+@Immutable
+data class CastMovie(
+    val id: Int,
+    val title: String,
+    val posterPath: String?,
+    val releaseDate: String,
+    val character: String,  // Character the actor played
+    val releaseYear: String
+)
 ```
 
 #### Use Cases
@@ -413,6 +441,14 @@ class GetMoviesUseCase @Inject constructor(
 ) {
     operator fun invoke(category: Category, page: Int): Flow<Resource<List<Movie>>> =
         repository.getMovies(category, page)
+}
+
+// GetCastMoviesUseCase.kt
+class GetCastMoviesUseCase @Inject constructor(
+    private val repository: MovieRepository
+) {
+    operator fun invoke(personId: Int): Flow<Resource<List<CastMovie>>> =
+        repository.getCastMovies(personId)
 }
 
 // ToggleFavoriteUseCase.kt
@@ -464,29 +500,21 @@ Each screen has 4 files:
 4. **Intent.kt** - User actions sealed interface
 
 ```kotlin
-// HomeIntent.kt
-sealed interface HomeIntent : MviIntent {
-    data object LoadMovies : HomeIntent
-    data class SelectCategory(val category: Category) : HomeIntent
-    data object LoadNextPage : HomeIntent
-    data object Retry : HomeIntent
+// CastMoviesIntent.kt
+sealed interface CastMoviesIntent : MviIntent {
+    data class LoadCastMovies(val personId: Int) : CastMoviesIntent
+    data object Retry : CastMoviesIntent
 }
 
-// HomeState.kt
+// CastMoviesState.kt
 @Immutable
-data class HomeState(
-    val movies: ImmutableList<Movie> = persistentListOf(),
-    val selectedCategory: Category = Category.POPULAR,
+data class CastMoviesState(
+    val movies: ImmutableList<CastMovie> = persistentListOf(),
+    val actorName: String = "",
+    val actorProfilePath: String? = null,
     val isLoading: Boolean = false,
-    val isLoadingMore: Boolean = false,
-    val error: String? = null,
-    val currentPage: Int = 1,
-    val hasMorePages: Boolean = true
-) : MviState {
-    companion object {
-        val Initial = HomeState()
-    }
-}
+    val error: String? = null
+) : MviState
 ```
 
 #### Compose UI with State Observation
@@ -643,6 +671,16 @@ class FavoriteTogglePropertyTest : FunSpec({
         }
     }
 })
+
+// Cast movies should be sorted by release date
+class CastMoviesSortingPropertyTest : FunSpec({
+    test("cast movies are sorted by release date descending") {
+        checkAll(Arb.list(Arb.castMovie())) { movies ->
+            val sorted = movies.sortedByDescending { it.releaseDate }
+            sorted.zipWithNext().all { (a, b) -> a.releaseDate >= b.releaseDate }
+        }
+    }
+})
 ```
 
 ---
@@ -699,6 +737,7 @@ The app integrates with [TMDB API](https://www.themoviedb.org/documentation/api)
 | `GET /movie/{id}/credits` | Movie cast |
 | `GET /movie/{id}/similar` | Similar movies |
 | `GET /search/movie` | Search movies |
+| `GET /person/{person_id}/movie_credits` | Actor's filmography |
 
 ## License
 

@@ -61,11 +61,12 @@ import kotlinx.collections.immutable.ImmutableList
 /**
  * Detail screen displaying comprehensive movie information.
  * 
- * Requirements: 4.2, 4.3, 4.4, 5.1
+ * Requirements: 4.2, 4.3, 4.4, 5.1, 1.1 (cast-movies)
  * - Shows backdrop image, poster, title, release date, runtime, genres, rating, and overview
  * - Shows cast list with actor photos and character names
  * - Shows similar movie recommendations
  * - Displays a favorite toggle button
+ * - Enables navigation to cast movies screen when user taps on a cast member
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +74,7 @@ fun DetailScreen(
     movieId: Int,
     onBackClick: () -> Unit,
     onMovieClick: (Int) -> Unit,
+    onCastClick: (personId: Int, personName: String, profilePath: String?) -> Unit = { _, _, _ -> },
     viewModel: DetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -143,7 +145,8 @@ fun DetailScreen(
                 state.movieDetail != null -> {
                     DetailContent(
                         movieDetail = state.movieDetail!!,
-                        onMovieClick = onMovieClick
+                        onMovieClick = onMovieClick,
+                        onCastClick = onCastClick
                     )
                 }
             }
@@ -155,7 +158,8 @@ fun DetailScreen(
 @Composable
 private fun DetailContent(
     movieDetail: MovieDetail,
-    onMovieClick: (Int) -> Unit
+    onMovieClick: (Int) -> Unit,
+    onCastClick: (personId: Int, personName: String, profilePath: String?) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -173,7 +177,10 @@ private fun DetailContent(
         
         // Cast section
         if (movieDetail.cast.isNotEmpty()) {
-            CastSection(cast = movieDetail.cast)
+            CastSection(
+                cast = movieDetail.cast,
+                onCastClick = onCastClick
+            )
         }
         
         // Similar movies section
@@ -316,7 +323,10 @@ private fun OverviewSection(overview: String) {
 }
 
 @Composable
-private fun CastSection(cast: ImmutableList<Cast>) {
+private fun CastSection(
+    cast: ImmutableList<Cast>,
+    onCastClick: (personId: Int, personName: String, profilePath: String?) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -340,47 +350,70 @@ private fun CastSection(cast: ImmutableList<Cast>) {
                 key = { it.id },
                 contentType = { "cast" }
             ) { castMember ->
-                CastItem(cast = castMember)
+                val onClickRemembered = remember(castMember.id) {
+                    { onCastClick(castMember.id, castMember.name, castMember.profilePath) }
+                }
+                CastItem(
+                    cast = castMember,
+                    onClick = onClickRemembered
+                )
             }
         }
     }
 }
 
+/**
+ * Clickable cast item displaying actor photo and name.
+ * 
+ * Requirements: 1.1 (cast-movies)
+ * - Enables navigation to cast movies screen when user taps on a cast member
+ */
 @Composable
-private fun CastItem(cast: Cast) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(80.dp)
+private fun CastItem(
+    cast: Cast,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(80.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        // Profile image
-        AsyncImage(
-            model = Constants.getProfileUrl(cast.profilePath),
-            contentDescription = cast.name,
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape),
-            contentScale = ContentScale.Crop
-        )
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        // Actor name
-        Text(
-            text = cast.name,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        
-        // Character name
-        Text(
-            text = cast.character,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Profile image
+            AsyncImage(
+                model = Constants.getProfileUrl(cast.profilePath),
+                contentDescription = cast.name,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            // Actor name
+            Text(
+                text = cast.name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            // Character name
+            Text(
+                text = cast.character,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

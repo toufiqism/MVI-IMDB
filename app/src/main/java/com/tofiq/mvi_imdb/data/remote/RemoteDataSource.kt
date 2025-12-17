@@ -4,6 +4,7 @@ import com.tofiq.mvi_imdb.data.remote.api.TmdbApiService
 import com.tofiq.mvi_imdb.data.remote.dto.CreditsResponse
 import com.tofiq.mvi_imdb.data.remote.dto.MovieDetailDto
 import com.tofiq.mvi_imdb.data.remote.dto.MovieListResponse
+import com.tofiq.mvi_imdb.data.remote.dto.PersonMovieCreditsResponse
 import com.tofiq.mvi_imdb.domain.model.Category
 import com.tofiq.mvi_imdb.util.Resource
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +39,14 @@ class RemoteDataSource @Inject constructor(
 
     suspend fun searchMovies(query: String, page: Int): Resource<MovieListResponse> =
         safeApiCall { apiService.searchMovies(query, page) }
+
+    /**
+     * Fetches movie credits for a specific person/actor.
+     * 
+     * Requirements: 1.2
+     */
+    suspend fun getPersonMovieCredits(personId: Int): Resource<PersonMovieCreditsResponse> =
+        safeApiCall { apiService.getPersonMovieCredits(personId) }
 
     private suspend fun <T> safeApiCall(apiCall: suspend () -> T): Resource<T> =
         withContext(Dispatchers.IO) {

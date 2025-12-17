@@ -2,12 +2,14 @@ package com.tofiq.mvi_imdb.data.repository
 
 import com.tofiq.mvi_imdb.data.local.LocalDataSource
 import com.tofiq.mvi_imdb.data.mapper.toCastList
+import com.tofiq.mvi_imdb.data.mapper.toCastMovieList
 import com.tofiq.mvi_imdb.data.mapper.toDomain
 import com.tofiq.mvi_imdb.data.mapper.toDomainList
 import com.tofiq.mvi_imdb.data.mapper.toEntity
 import com.tofiq.mvi_imdb.data.mapper.toFavoriteEntity
 import com.tofiq.mvi_imdb.data.mapper.toFavoriteDomainList
 import com.tofiq.mvi_imdb.data.remote.RemoteDataSource
+import com.tofiq.mvi_imdb.domain.model.CastMovie
 import com.tofiq.mvi_imdb.domain.model.Category
 import com.tofiq.mvi_imdb.domain.model.Movie
 import com.tofiq.mvi_imdb.domain.model.MovieDetail
@@ -119,6 +121,30 @@ class MovieRepositoryImpl @Inject constructor(
 
     override suspend fun isFavorite(movieId: Int): Boolean =
         localDataSource.isFavorite(movieId)
+
+    /**
+     * Fetches movies featuring a specific actor/person.
+     * 
+     * Requirements: 1.2, 5.1, 5.2
+     * - Fetches movie credits from TMDB API using the Person_ID
+     * - Sorts by release date descending (newest first)
+     * 
+     * Note: Full implementation will be done in task 3.
+     */
+    override fun getCastMovies(personId: Int): Flow<Resource<List<CastMovie>>> = flow {
+        emit(Resource.Loading)
+        
+        when (val response = remoteDataSource.getPersonMovieCredits(personId)) {
+            is Resource.Success -> {
+                val movies = response.data.cast
+                    .toCastMovieList()
+                    .sortedByDescending { it.releaseDate ?: "" }
+                emit(Resource.Success(movies))
+            }
+            is Resource.Error -> emit(Resource.Error(response.message))
+            is Resource.Loading -> { /* Already emitted */ }
+        }
+    }
 
     private suspend fun getFavoriteIds(): Set<Int> {
         val favorites = mutableSetOf<Int>()

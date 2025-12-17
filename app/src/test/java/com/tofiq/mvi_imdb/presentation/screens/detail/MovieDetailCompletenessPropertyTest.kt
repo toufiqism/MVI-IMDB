@@ -15,6 +15,7 @@ import io.kotest.property.arbitrary.list
 import io.kotest.property.arbitrary.orNull
 import io.kotest.property.arbitrary.string
 import io.kotest.property.checkAll
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -59,12 +60,12 @@ class MovieDetailCompletenessPropertyTest {
             backdropPath = Arb.string(10..50).orNull().bind(),
             releaseDate = Arb.string(0..10).bind(),
             runtime = Arb.int(1..300).orNull().bind(),
-            genres = Arb.list(Arb.string(1..20), 0..5).bind(),
+            genres = Arb.list(Arb.string(1..20), 0..5).bind().toImmutableList(),
             voteAverage = Arb.double(0.0..10.0).bind(),
             voteCount = Arb.int(0..Int.MAX_VALUE).bind(),
             overview = Arb.string(0..500).bind(),
-            cast = Arb.list(castArb, 0..10).bind(),
-            similarMovies = Arb.list(movieArb, 0..10).bind(),
+            cast = Arb.list(castArb, 0..10).bind().toImmutableList(),
+            similarMovies = Arb.list(movieArb, 0..10).bind().toImmutableList(),
             isFavorite = Arb.boolean().bind()
         )
     }
