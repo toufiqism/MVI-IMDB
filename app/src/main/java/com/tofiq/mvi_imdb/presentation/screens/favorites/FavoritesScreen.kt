@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.presentation.components.MovieCard
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Favorites screen displaying user's saved favorite movies.
@@ -57,10 +59,11 @@ fun FavoritesScreen(
 
 /**
  * Grid displaying favorite movies.
+ * Optimized with remembered callbacks and stable keys.
  */
 @Composable
 private fun FavoritesGrid(
-    favorites: List<com.tofiq.mvi_imdb.domain.model.Movie>,
+    favorites: ImmutableList<com.tofiq.mvi_imdb.domain.model.Movie>,
     onMovieClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -71,10 +74,17 @@ private fun FavoritesGrid(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        items(favorites, key = { it.id }) { movie ->
+        items(
+            items = favorites,
+            key = { it.id },
+            contentType = { "movie" }
+        ) { movie ->
+            val onClickRemembered = remember(movie.id) {
+                { onMovieClick(movie.id) }
+            }
             MovieCard(
                 movie = movie,
-                onClick = { onMovieClick(movie.id) }
+                onClick = onClickRemembered
             )
         }
     }

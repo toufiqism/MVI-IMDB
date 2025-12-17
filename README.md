@@ -4,12 +4,21 @@ A modern Android movie discovery app built with **Jetpack Compose**, **MVI archi
 
 ## Features
 
-- 🏠 **Home Screen** - Browse movies by category (Popular, Top Rated, Upcoming, Now Playing)
-- 🔍 **Search** - Find movies by title with debounced search
+- 🏠 **Home Screen** - Browse movies by category with swipeable tabs (Popular, Top Rated, Upcoming, Now Playing)
+- 👆 **Swipe Navigation** - Swipe left/right to switch between categories
+- 🔍 **Search** - Find movies by title with debounced search (300ms, min 2 chars)
 - 📖 **Movie Details** - View comprehensive movie info including cast, genres, and similar movies
 - ❤️ **Favorites** - Save movies locally for quick access
 - 📴 **Offline Support** - Cached data available without internet
 - ♾️ **Infinite Scroll** - Automatic pagination when scrolling
+- ⚡ **Optimized Performance** - Recomposition-optimized with immutable collections and stable annotations
+- 🎨 **Custom Typography** - Anta font family throughout the app
+
+## Screenshots
+
+| Home | Search | Details | Favorites |
+|------|--------|---------|-----------|
+| Swipeable category tabs | Debounced search | Cast & similar movies | Saved movies |
 
 ## Architecture
 
@@ -23,15 +32,16 @@ com.tofiq.mvi_imdb/
 │   ├── mapper/              # DTO ↔ Entity ↔ Domain mappers
 │   └── repository/          # Repository implementations
 ├── domain/                  # Domain layer
-│   ├── model/               # Domain models (Movie, MovieDetail)
+│   ├── model/               # Domain models (Movie, MovieDetail, Cast)
 │   ├── repository/          # Repository interfaces
 │   └── usecase/             # Business logic use cases
 ├── presentation/            # Presentation layer
-│   ├── base/                # MVI base classes
+│   ├── base/                # MVI base classes (MviViewModel, MviState, MviIntent)
 │   ├── components/          # Reusable Compose components
 │   ├── navigation/          # Navigation3 setup
 │   └── screens/             # Feature screens (home, detail, search, favorites)
 ├── di/                      # Hilt dependency injection modules
+├── ui/theme/                # Material 3 theming with custom Anta font
 └── util/                    # Constants, utilities, error handling
 ```
 
@@ -39,7 +49,7 @@ com.tofiq.mvi_imdb/
 
 | Category | Technology |
 |----------|------------|
-| UI | Jetpack Compose, Material 3 |
+| UI | Jetpack Compose, Material 3, HorizontalPager |
 | Architecture | MVI, Clean Architecture |
 | Navigation | Navigation3 |
 | DI | Hilt |
@@ -47,7 +57,20 @@ com.tofiq.mvi_imdb/
 | Local Storage | Room Database |
 | Image Loading | Coil |
 | Async | Kotlin Coroutines, Flow |
+| Collections | Kotlinx Collections Immutable |
 | Testing | JUnit, Kotest (Property-based), MockK, Turbine |
+
+## Performance Optimizations
+
+The app is optimized for Compose recompositions:
+
+- **@Immutable annotations** on domain models (Movie, MovieDetail, Cast)
+- **@Stable annotations** on enums and state classes
+- **ImmutableList** from kotlinx-collections-immutable for list stability
+- **Pre-computed values** in data classes to avoid runtime calculations
+- **Remembered callbacks** to prevent lambda recreation
+- **Stable keys** in LazyGrid/LazyRow for efficient diffing
+- **contentType** hints for better item recycling
 
 ## Requirements
 
@@ -78,7 +101,7 @@ com.tofiq.mvi_imdb/
 
 | Screen | Description |
 |--------|-------------|
-| `HomeScreen` | Displays categorized movie lists with tab navigation |
+| `HomeScreen` | Swipeable category tabs with HorizontalPager |
 | `SearchScreen` | Search movies with 300ms debounce, min 2 characters |
 | `DetailScreen` | Full movie details with cast, genres, similar movies |
 | `FavoritesScreen` | Locally saved favorite movies |
@@ -89,6 +112,9 @@ com.tofiq.mvi_imdb/
 - **MovieRepository** - Single source of truth for movie data
 - **Resource** - Wrapper for Success/Error/Loading states
 - **AppError** - Typed error handling with user-friendly messages
+- **MovieCard** - Uniform height cards with poster, title, year, rating
+- **MovieGrid** - Lazy grid with pagination support
+- **CategoryTabs** - Scrollable tabs synced with pager
 
 ## Testing
 
@@ -109,14 +135,16 @@ Test coverage includes:
 
 The app integrates with [TMDB API](https://www.themoviedb.org/documentation/api):
 
-- `GET /movie/popular` - Popular movies
-- `GET /movie/top_rated` - Top rated movies
-- `GET /movie/upcoming` - Upcoming movies
-- `GET /movie/now_playing` - Now playing movies
-- `GET /movie/{id}` - Movie details
-- `GET /movie/{id}/credits` - Movie cast
-- `GET /movie/{id}/similar` - Similar movies
-- `GET /search/movie` - Search movies
+| Endpoint | Description |
+|----------|-------------|
+| `GET /movie/popular` | Popular movies |
+| `GET /movie/top_rated` | Top rated movies |
+| `GET /movie/upcoming` | Upcoming movies |
+| `GET /movie/now_playing` | Now playing movies |
+| `GET /movie/{id}` | Movie details |
+| `GET /movie/{id}/credits` | Movie cast |
+| `GET /movie/{id}/similar` | Similar movies |
+| `GET /search/movie` | Search movies |
 
 ## License
 

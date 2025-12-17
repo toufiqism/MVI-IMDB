@@ -102,6 +102,9 @@ dependencies {
     //more icons
     implementation (libs.androidx.material.icons.extended)
 
+    // Kotlinx Collections Immutable - for Compose recomposition optimization
+    implementation(libs.kotlinx.collections.immutable)
+
     //room for local database
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

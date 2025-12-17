@@ -110,7 +110,9 @@ class DetailViewModel @Inject constructor(
                 releaseDate = currentDetail.releaseDate,
                 voteAverage = currentDetail.voteAverage,
                 overview = currentDetail.overview,
-                isFavorite = currentDetail.isFavorite
+                isFavorite = currentDetail.isFavorite,
+                releaseYear = currentDetail.releaseYear,
+                formattedRating = currentDetail.formattedRating
             )
             
             toggleFavoriteUseCase(movie)

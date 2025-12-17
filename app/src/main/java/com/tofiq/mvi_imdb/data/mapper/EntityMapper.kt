@@ -26,7 +26,10 @@ fun MovieEntity.toDomain(isFavorite: Boolean = false): Movie = Movie(
     releaseDate = releaseDate,
     voteAverage = voteAverage,
     overview = overview,
-    isFavorite = isFavorite
+    isFavorite = isFavorite,
+    // Pre-compute values for recomposition optimization
+    releaseYear = releaseDate.takeIf { it.length >= 4 }?.substring(0, 4) ?: "",
+    formattedRating = String.format("%.1f", voteAverage)
 )
 
 fun List<MovieEntity>.toDomainList(favoriteIds: Set<Int> = emptySet()): List<Movie> =
@@ -51,7 +54,10 @@ fun FavoriteEntity.toDomain(): Movie = Movie(
     releaseDate = releaseDate,
     voteAverage = voteAverage,
     overview = overview,
-    isFavorite = true
+    isFavorite = true,
+    // Pre-compute values for recomposition optimization
+    releaseYear = releaseDate.takeIf { it.length >= 4 }?.substring(0, 4) ?: "",
+    formattedRating = String.format("%.1f", voteAverage)
 )
 
 fun List<FavoriteEntity>.toFavoriteDomainList(): List<Movie> = map { it.toDomain() }

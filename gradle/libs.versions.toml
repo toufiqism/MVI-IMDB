@@ -20,8 +20,10 @@ room = "2.8.4"
 kotest = "5.8.0"
 mockk = "1.13.9"
 turbine = "1.0.0"
+kotlinxCollectionsImmutable = "0.3.7"
 
 [libraries]
+kotlinx-collections-immutable = { group = "org.jetbrains.kotlinx", name = "kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }

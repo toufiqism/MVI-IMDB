@@ -5,6 +5,8 @@ import com.tofiq.mvi_imdb.domain.usecase.SearchMoviesUseCase
 import com.tofiq.mvi_imdb.presentation.base.MviViewModel
 import com.tofiq.mvi_imdb.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +81,7 @@ class SearchViewModel @Inject constructor(
             searchJob?.cancel()
             _state.update { 
                 it.copy(
-                    movies = emptyList(),
+                    movies = persistentListOf(),
                     isLoading = false,
                     isEmpty = false,
                     error = null,
@@ -115,7 +117,7 @@ class SearchViewModel @Inject constructor(
                         val movies = resource.data
                         _state.update {
                             it.copy(
-                                movies = movies,
+                                movies = movies.toImmutableList(),
                                 isLoading = false,
                                 error = null,
                                 isEmpty = movies.isEmpty(),
@@ -129,7 +131,7 @@ class SearchViewModel @Inject constructor(
                             it.copy(
                                 isLoading = false,
                                 error = resource.message,
-                                movies = resource.data ?: it.movies
+                                movies = resource.data?.toImmutableList() ?: it.movies
                             )
                         }
                     }
@@ -171,7 +173,7 @@ class SearchViewModel @Inject constructor(
                             val existingIds = it.movies.map { movie -> movie.id }.toSet()
                             val newMovies = resource.data.filter { movie -> movie.id !in existingIds }
                             it.copy(
-                                movies = it.movies + newMovies,
+                                movies = (it.movies + newMovies).toImmutableList(),
                                 isLoadingMore = false,
                                 currentPage = nextPage,
                                 hasMorePages = resource.data.isNotEmpty()

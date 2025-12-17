@@ -6,6 +6,7 @@ import com.tofiq.mvi_imdb.domain.usecase.GetFavoritesUseCase
 import com.tofiq.mvi_imdb.domain.usecase.ToggleFavoriteUseCase
 import com.tofiq.mvi_imdb.presentation.base.MviViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,7 +54,7 @@ class FavoritesViewModel @Inject constructor(
             getFavoritesUseCase().collect { favorites ->
                 _state.update {
                     it.copy(
-                        favorites = favorites,
+                        favorites = favorites.toImmutableList(),
                         isLoading = false,
                         isEmpty = favorites.isEmpty()
                     )

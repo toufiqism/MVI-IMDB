@@ -20,16 +20,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tofiq.mvi_imdb.domain.model.Movie
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Reusable movie grid composable with lazy loading and pagination support.
+ * Optimized for recomposition with stable parameters and remembered callbacks.
  * 
  * Requirements: 1.2 - WHEN the user scrolls to the bottom of the movie list 
  * THEN the Movie_List_Screen SHALL load the next page of movies automatically
  */
 @Composable
 fun MovieGrid(
-    movies: List<Movie>,
+    movies: ImmutableList<Movie>,
     isLoadingMore: Boolean,
     onMovieClick: (Int) -> Unit,
     onLoadMore: () -> Unit,
@@ -48,7 +50,7 @@ fun MovieGrid(
         }
     }
 
-    LaunchedEffect(shouldLoadMore) {
+    LaunchedEffect(shouldLoadMore, isLoadingMore) {
         if (shouldLoadMore && !isLoadingMore) {
             onLoadMore()
         }
@@ -62,16 +64,27 @@ fun MovieGrid(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        items(movies, key = { it.id }) { movie ->
+        items(
+            items = movies,
+            key = { it.id },
+            contentType = { "movie" }
+        ) { movie ->
+            // Remember the click callback to prevent recomposition
+            val onClickRemembered = remember(movie.id) {
+                { onMovieClick(movie.id) }
+            }
             MovieCard(
                 movie = movie,
-                onClick = { onMovieClick(movie.id) }
+                onClick = onClickRemembered
             )
         }
         
         // Loading indicator at the bottom during pagination
         if (isLoadingMore) {
-            item {
+            item(
+                key = "loading_indicator",
+                contentType = "loading"
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -55,19 +55,30 @@ fun SearchScreen(
         focusRequester.requestFocus()
     }
 
+    // Remember callbacks to prevent unnecessary recompositions
+    val onQueryChange = remember(viewModel) {
+        { query: String -> viewModel.processIntent(SearchIntent.UpdateQuery(query)) }
+    }
+    
+    val onClear = remember(viewModel) {
+        { viewModel.processIntent(SearchIntent.ClearSearch) }
+    }
+    
+    val onSearch: () -> Unit = remember(keyboardController) {
+        { keyboardController?.hide(); Unit }
+    }
+    
+    val onLoadMore = remember(viewModel) {
+        { viewModel.processIntent(SearchIntent.LoadNextPage) }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Search bar
         SearchBar(
             query = state.query,
-            onQueryChange = { query ->
-                viewModel.processIntent(SearchIntent.UpdateQuery(query))
-            },
-            onClear = {
-                viewModel.processIntent(SearchIntent.ClearSearch)
-            },
-            onSearch = {
-                keyboardController?.hide()
-            },
+            onQueryChange = onQueryChange,
+            onClear = onClear,
+            onSearch = onSearch,
             focusRequester = focusRequester,
             modifier = Modifier
                 .fillMaxWidth()
@@ -81,12 +92,13 @@ fun SearchScreen(
                     LoadingIndicator()
                 }
                 state.error != null && state.movies.isEmpty() -> {
+                    // Remember retry callback with current query
+                    val onRetry = remember(viewModel, state.query) {
+                        { viewModel.processIntent(SearchIntent.UpdateQuery(state.query)) }
+                    }
                     ErrorView(
                         message = state.error ?: "Unknown error",
-                        onRetry = {
-                            // Re-trigger search with current query
-                            viewModel.processIntent(SearchIntent.UpdateQuery(state.query))
-                        }
+                        onRetry = onRetry
                     )
                 }
                 state.isEmpty -> {
@@ -103,7 +115,7 @@ fun SearchScreen(
                         movies = state.movies,
                         isLoadingMore = state.isLoadingMore,
                         onMovieClick = onMovieClick,
-                        onLoadMore = { viewModel.processIntent(SearchIntent.LoadNextPage) }
+                        onLoadMore = onLoadMore
                     )
                 }
             }

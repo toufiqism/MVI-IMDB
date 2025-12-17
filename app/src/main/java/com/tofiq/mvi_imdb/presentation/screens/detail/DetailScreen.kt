@@ -37,6 +37,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +55,7 @@ import com.tofiq.mvi_imdb.domain.model.MovieDetail
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.util.Constants
+import kotlinx.collections.immutable.ImmutableList
 
 
 /**
@@ -314,7 +316,7 @@ private fun OverviewSection(overview: String) {
 }
 
 @Composable
-private fun CastSection(cast: List<Cast>) {
+private fun CastSection(cast: ImmutableList<Cast>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -333,7 +335,11 @@ private fun CastSection(cast: List<Cast>) {
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(cast.take(10)) { castMember ->
+            items(
+                items = cast.take(10),
+                key = { it.id },
+                contentType = { "cast" }
+            ) { castMember ->
                 CastItem(cast = castMember)
             }
         }
@@ -381,7 +387,7 @@ private fun CastItem(cast: Cast) {
 
 @Composable
 private fun SimilarMoviesSection(
-    movies: List<Movie>,
+    movies: ImmutableList<Movie>,
     onMovieClick: (Int) -> Unit
 ) {
     Column(
@@ -402,10 +408,17 @@ private fun SimilarMoviesSection(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(movies.take(10)) { movie ->
+            items(
+                items = movies.take(10),
+                key = { it.id },
+                contentType = { "similar_movie" }
+            ) { movie ->
+                val onClickRemembered = remember(movie.id) {
+                    { onMovieClick(movie.id) }
+                }
                 SimilarMovieItem(
                     movie = movie,
-                    onClick = { onMovieClick(movie.id) }
+                    onClick = onClickRemembered
                 )
             }
         }
