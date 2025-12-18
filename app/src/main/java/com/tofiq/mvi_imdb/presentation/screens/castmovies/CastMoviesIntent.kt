@@ -20,4 +20,10 @@ sealed interface CastMoviesIntent : MviIntent {
     
     /** Retry loading after an error */
     data object Retry : CastMoviesIntent
+    
+    /** 
+     * User clicked on a movie to view details.
+     * Requirements: 4.5 - CastMoviesViewModel needs to navigate to movie details
+     */
+    data class MovieClicked(val movieId: Int) : CastMoviesIntent
 }

@@ -17,15 +17,16 @@ import javax.inject.Inject
  * ViewModel for the Cast Movies screen following MVI architecture.
  * Handles loading movies for a specific actor/person.
  * 
- * Requirements: 1.2, 1.4, 1.5
+ * Requirements: 1.2, 1.4, 1.5, 4.5
  * - Fetches movie credits from TMDB API using Person_ID
  * - Displays loading indicator during API request
  * - Displays error message with retry option on failure
+ * - Emits navigation Effect when movie is clicked
  */
 @HiltViewModel
 class CastMoviesViewModel @Inject constructor(
     private val getCastMoviesUseCase: GetCastMoviesUseCase
-) : MviViewModel<CastMoviesIntent, CastMoviesState>() {
+) : MviViewModel<CastMoviesIntent, CastMoviesState, CastMoviesEffect>() {
 
     private val _state = MutableStateFlow(CastMoviesState.Initial)
     override val state: StateFlow<CastMoviesState> = _state.asStateFlow()
@@ -38,7 +39,16 @@ class CastMoviesViewModel @Inject constructor(
                 profilePath = intent.profilePath
             )
             is CastMoviesIntent.Retry -> retry()
+            is CastMoviesIntent.MovieClicked -> onMovieClicked(intent.movieId)
         }
+    }
+    
+    /**
+     * Handle movie click by emitting navigation effect.
+     * Requirements: 4.5 - CastMoviesViewModel SHALL emit a navigation Effect
+     */
+    private fun onMovieClicked(movieId: Int) {
+        sendEffect(CastMoviesEffect.NavigateToMovieDetail(movieId))
     }
 
     /**

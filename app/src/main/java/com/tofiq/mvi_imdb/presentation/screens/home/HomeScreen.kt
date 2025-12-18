@@ -14,6 +14,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tofiq.mvi_imdb.domain.model.Category
+import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.CategoryTabs
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
@@ -37,6 +38,17 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val categories = remember { Category.entries }
+    
+    // Collect effects for navigation and one-time events
+    // Requirements: 3.1, 3.2 - Use LaunchedEffect with effect flow, process once without replay
+    CollectEffect(effect = viewModel.effect) { effect ->
+        when (effect) {
+            is HomeEffect.NavigateToMovieDetail -> onMovieClick(effect.movieId)
+            is HomeEffect.ShowError -> {
+                // Error handling can be extended here (e.g., show snackbar)
+            }
+        }
+    }
     
     // Pager state for swipe functionality
     val pagerState = rememberPagerState(
@@ -76,6 +88,13 @@ fun HomeScreen(
     val onLoadMore = remember(viewModel) {
         { viewModel.processIntent(HomeIntent.LoadNextPage) }
     }
+    
+    // Movie click now emits intent instead of direct callback
+    val onMovieClicked = remember(viewModel) {
+        { movieId: Int ->
+            viewModel.processIntent(HomeIntent.MovieClicked(movieId))
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Category tabs
@@ -107,7 +126,7 @@ fun HomeScreen(
                             MovieGrid(
                                 movies = state.movies,
                                 isLoadingMore = state.isLoadingMore,
-                                onMovieClick = onMovieClick,
+                                onMovieClick = onMovieClicked,
                                 onLoadMore = onLoadMore
                             )
                         }

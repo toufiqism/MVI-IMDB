@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.presentation.components.MovieGrid
@@ -48,6 +49,14 @@ fun SearchScreen(
     val state by viewModel.state.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Collect effects for navigation and one-time events
+    // Requirements: 3.1, 3.2 - Use LaunchedEffect with effect flow, process once without replay
+    CollectEffect(effect = viewModel.effect) { effect ->
+        when (effect) {
+            is SearchEffect.NavigateToMovieDetail -> onMovieClick(effect.movieId)
+        }
+    }
 
     // Request focus on search field when screen opens
     // Requirements: 3.1 - Search input field with focus
@@ -70,6 +79,13 @@ fun SearchScreen(
     
     val onLoadMore = remember(viewModel) {
         { viewModel.processIntent(SearchIntent.LoadNextPage) }
+    }
+    
+    // Movie click now emits intent instead of direct callback
+    val onMovieClicked = remember(viewModel) {
+        { movieId: Int ->
+            viewModel.processIntent(SearchIntent.MovieClicked(movieId))
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -114,7 +130,7 @@ fun SearchScreen(
                     MovieGrid(
                         movies = state.movies,
                         isLoadingMore = state.isLoadingMore,
-                        onMovieClick = onMovieClick,
+                        onMovieClick = onMovieClicked,
                         onLoadMore = onLoadMore
                     )
                 }

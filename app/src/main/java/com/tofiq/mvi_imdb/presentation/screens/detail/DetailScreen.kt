@@ -31,6 +31,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -38,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,21 +55,24 @@ import coil.compose.AsyncImage
 import com.tofiq.mvi_imdb.domain.model.Cast
 import com.tofiq.mvi_imdb.domain.model.Movie
 import com.tofiq.mvi_imdb.domain.model.MovieDetail
+import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.util.Constants
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.launch
 
 
 /**
  * Detail screen displaying comprehensive movie information.
  * 
- * Requirements: 4.2, 4.3, 4.4, 5.1, 1.1 (cast-movies)
+ * Requirements: 4.2, 4.3, 4.4, 5.1, 1.1 (cast-movies), 3.1, 3.2
  * - Shows backdrop image, poster, title, release date, runtime, genres, rating, and overview
  * - Shows cast list with actor photos and character names
  * - Shows similar movie recommendations
  * - Displays a favorite toggle button
  * - Enables navigation to cast movies screen when user taps on a cast member
+ * - Collects Effects for navigation and transient messages
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,13 +84,35 @@ fun DetailScreen(
     viewModel: DetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     
     // Load movie detail when movieId changes
     androidx.compose.runtime.LaunchedEffect(movieId) {
         viewModel.processIntent(DetailIntent.LoadDetail(movieId))
     }
+    
+    // Collect effects for navigation and messages
+    // Requirements: 3.1, 3.2 - Use LaunchedEffect to collect effects, process once without replay
+    CollectEffect(effect = viewModel.effect) { effect ->
+        when (effect) {
+            is DetailEffect.NavigateToMovie -> onMovieClick(effect.movieId)
+            is DetailEffect.NavigateToCastMovies -> onCastClick(
+                effect.personId,
+                effect.personName,
+                effect.profilePath
+            )
+            is DetailEffect.ShowMessage -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(effect.message)
+                }
+            }
+            is DetailEffect.NavigateBack -> onBackClick()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { },
@@ -145,8 +173,12 @@ fun DetailScreen(
                 state.movieDetail != null -> {
                     DetailContent(
                         movieDetail = state.movieDetail!!,
-                        onMovieClick = onMovieClick,
-                        onCastClick = onCastClick
+                        onMovieClick = { movieId -> 
+                            viewModel.processIntent(DetailIntent.SimilarMovieClicked(movieId))
+                        },
+                        onCastClick = { personId, personName, profilePath ->
+                            viewModel.processIntent(DetailIntent.CastClicked(personId, personName, profilePath))
+                        }
                     )
                 }
             }

@@ -24,18 +24,20 @@ import javax.inject.Inject
 /**
  * ViewModel for the Search screen following MVI architecture.
  * Handles search query processing with debounce and pagination.
+ * Emits Effects for navigation and one-time events.
  * 
- * Requirements: 3.2, 3.3, 3.4, 3.5
+ * Requirements: 3.2, 3.3, 3.4, 3.5, 4.3
  * - Searches movies when query is at least 2 characters
  * - Debounces search by 300ms
  * - Displays empty state when no results found
  * - Clears results when search is cleared
+ * - Emits NavigateToMovieDetail effect when movie is clicked
  */
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val searchMoviesUseCase: SearchMoviesUseCase
-) : MviViewModel<SearchIntent, SearchState>() {
+) : MviViewModel<SearchIntent, SearchState, SearchEffect>() {
 
     private val _state = MutableStateFlow(SearchState.Initial)
     override val state: StateFlow<SearchState> = _state.asStateFlow()
@@ -65,7 +67,17 @@ class SearchViewModel @Inject constructor(
             is SearchIntent.UpdateQuery -> updateQuery(intent.query)
             is SearchIntent.ClearSearch -> clearSearch()
             is SearchIntent.LoadNextPage -> loadNextPage()
+            is SearchIntent.MovieClicked -> onMovieClicked(intent.movieId)
         }
+    }
+    
+    /**
+     * Handle movie click by emitting navigation effect.
+     * Requirements: 4.3 - WHEN the SearchViewModel needs to navigate to movie details 
+     * THEN the SearchViewModel SHALL emit a navigation Effect
+     */
+    private fun onMovieClicked(movieId: Int) {
+        sendEffect(SearchEffect.NavigateToMovieDetail(movieId))
     }
 
     /**

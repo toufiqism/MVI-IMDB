@@ -17,4 +17,7 @@ sealed interface SearchIntent : MviIntent {
     
     /** Load the next page of search results (pagination) */
     data object LoadNextPage : SearchIntent
+    
+    /** Navigate to movie detail screen */
+    data class MovieClicked(val movieId: Int) : SearchIntent
 }

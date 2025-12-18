@@ -17,17 +17,20 @@ import javax.inject.Inject
 /**
  * ViewModel for the Favorites screen following MVI architecture.
  * Handles loading and managing favorite movies.
+ * Emits Effects for navigation and one-time events.
  * 
- * Requirements: 5.4, 8.1, 8.2
+ * Requirements: 5.4, 8.1, 8.2, 4.4, 5.2
  * - Displays all saved favorite movies from local database
  * - Allows removing movies from favorites
  * - Processes intents and emits immutable states
+ * - Emits NavigateToMovieDetail effect when movie is clicked
+ * - Emits ShowFavoriteRemoved effect when favorite is removed
  */
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
     private val getFavoritesUseCase: GetFavoritesUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase
-) : MviViewModel<FavoritesIntent, FavoritesState>() {
+) : MviViewModel<FavoritesIntent, FavoritesState, FavoritesEffect>() {
 
     private val _state = MutableStateFlow(FavoritesState.Initial)
     override val state: StateFlow<FavoritesState> = _state.asStateFlow()
@@ -40,7 +43,17 @@ class FavoritesViewModel @Inject constructor(
         when (intent) {
             is FavoritesIntent.LoadFavorites -> loadFavorites()
             is FavoritesIntent.RemoveFavorite -> removeFavorite(intent.movie)
+            is FavoritesIntent.MovieClicked -> onMovieClicked(intent.movieId)
         }
+    }
+
+    /**
+     * Handle movie click by emitting navigation effect.
+     * Requirements: 4.4 - WHEN the FavoritesViewModel needs to navigate to movie details 
+     * THEN the FavoritesViewModel SHALL emit a navigation Effect
+     */
+    private fun onMovieClicked(movieId: Int) {
+        sendEffect(FavoritesEffect.NavigateToMovieDetail(movieId))
     }
 
     /**
@@ -66,10 +79,13 @@ class FavoritesViewModel @Inject constructor(
     /**
      * Remove a movie from favorites.
      * Requirements: 5.3 - Removes movie from favorites when toggled
+     * Requirements: 5.2 - Emit ShowFavoriteRemoved effect when favorite is removed
      */
     private fun removeFavorite(movie: Movie) {
         viewModelScope.launch {
             toggleFavoriteUseCase(movie)
+            // Emit effect to show confirmation message
+            sendEffect(FavoritesEffect.ShowFavoriteRemoved(movie.title))
             // The favorites list will be automatically updated via the Flow
         }
     }

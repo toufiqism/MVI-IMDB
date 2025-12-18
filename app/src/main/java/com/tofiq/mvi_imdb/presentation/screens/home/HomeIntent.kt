@@ -21,4 +21,7 @@ sealed interface HomeIntent : MviIntent {
     
     /** Retry loading after an error */
     data object Retry : HomeIntent
+    
+    /** User clicked on a movie to view details */
+    data class MovieClicked(val movieId: Int) : HomeIntent
 }

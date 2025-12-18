@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tofiq.mvi_imdb.domain.model.CastMovie
+import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.util.Constants
@@ -75,6 +76,17 @@ fun CastMoviesScreen(
     viewModel: CastMoviesViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    
+    // Collect effects for navigation and error handling
+    // Requirements: 3.1, 3.2 - Use LaunchedEffect with effect flow, process once without replay
+    CollectEffect(effect = viewModel.effect) { effect ->
+        when (effect) {
+            is CastMoviesEffect.NavigateToMovieDetail -> onMovieClick(effect.movieId)
+            is CastMoviesEffect.ShowError -> {
+                // Error is shown via state, this is for transient notifications
+            }
+        }
+    }
     
     // Load cast movies when screen is displayed
     LaunchedEffect(personId) {
@@ -128,7 +140,9 @@ fun CastMoviesScreen(
                 else -> {
                     CastMoviesGrid(
                         movies = state.movies,
-                        onMovieClick = onMovieClick
+                        onMovieClick = { movieId ->
+                            viewModel.processIntent(CastMoviesIntent.MovieClicked(movieId))
+                        }
                     )
                 }
             }

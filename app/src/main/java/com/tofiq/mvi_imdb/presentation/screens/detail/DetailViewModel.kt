@@ -18,13 +18,14 @@ import javax.inject.Inject
 
 /**
  * ViewModel for the Detail screen following MVI architecture.
- * Handles movie detail loading and favorite toggle functionality.
+ * Handles movie detail loading, favorite toggle functionality, and navigation effects.
  * 
- * Requirements: 4.1, 5.1, 5.2, 5.3
+ * Requirements: 4.1, 5.1, 5.2, 5.3, 5.4
  * - Navigates to and displays movie's detailed information
  * - Displays a favorite toggle button
  * - Persists movie to favorites when toggled on
  * - Removes movie from favorites when toggled off
+ * - Emits Effects for navigation and transient messages
  */
 @HiltViewModel
 class DetailViewModel @Inject constructor(
@@ -32,7 +33,7 @@ class DetailViewModel @Inject constructor(
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val repository: MovieRepository,
     savedStateHandle: SavedStateHandle
-) : MviViewModel<DetailIntent, DetailState>() {
+) : MviViewModel<DetailIntent, DetailState, DetailEffect>() {
 
     private val _state = MutableStateFlow(DetailState.Initial)
     override val state: StateFlow<DetailState> = _state.asStateFlow()
@@ -50,6 +51,32 @@ class DetailViewModel @Inject constructor(
             is DetailIntent.LoadDetail -> loadMovieDetail(intent.movieId)
             is DetailIntent.ToggleFavorite -> toggleFavorite()
             is DetailIntent.Retry -> retry()
+            is DetailIntent.CastClicked -> navigateToCastMovies(
+                intent.personId,
+                intent.personName,
+                intent.profilePath
+            )
+            is DetailIntent.SimilarMovieClicked -> navigateToMovie(intent.movieId)
+        }
+    }
+    
+    /**
+     * Navigate to cast movies screen for a specific actor.
+     * Requirements: 4.1 - Navigation via Effects
+     */
+    private fun navigateToCastMovies(personId: Int, personName: String, profilePath: String?) {
+        viewModelScope.launch {
+            emitEffect(DetailEffect.NavigateToCastMovies(personId, personName, profilePath))
+        }
+    }
+    
+    /**
+     * Navigate to another movie's detail screen.
+     * Requirements: 4.1 - Navigation via Effects
+     */
+    private fun navigateToMovie(movieId: Int) {
+        viewModelScope.launch {
+            emitEffect(DetailEffect.NavigateToMovie(movieId))
         }
     }
 
@@ -95,7 +122,7 @@ class DetailViewModel @Inject constructor(
 
     /**
      * Toggle the favorite status of the current movie.
-     * Requirements: 5.2, 5.3 - Toggle favorite adds/removes movie from favorites
+     * Requirements: 5.2, 5.3, 5.4 - Toggle favorite adds/removes movie from favorites and emits confirmation message
      */
     private fun toggleFavorite() {
         val currentDetail = state.value.movieDetail ?: return
@@ -124,6 +151,15 @@ class DetailViewModel @Inject constructor(
                     movieDetail = currentDetail.copy(isFavorite = newFavoriteStatus)
                 )
             }
+            
+            // Emit ShowMessage effect to confirm the action
+            // Requirements: 5.4 - WHEN a favorite is toggled THEN the ViewModel SHALL emit an Effect to show a confirmation message
+            val message = if (newFavoriteStatus) {
+                "${currentDetail.title} added to favorites"
+            } else {
+                "${currentDetail.title} removed from favorites"
+            }
+            emitEffect(DetailEffect.ShowMessage(message))
         }
     }
 

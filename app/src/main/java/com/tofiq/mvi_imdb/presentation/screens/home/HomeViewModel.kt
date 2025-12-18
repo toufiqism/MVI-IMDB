@@ -18,17 +18,19 @@ import javax.inject.Inject
 /**
  * ViewModel for the Home screen following MVI architecture.
  * Handles movie loading, pagination, and category switching.
+ * Emits Effects for navigation and one-time events.
  * 
- * Requirements: 1.1, 1.2, 2.2, 8.1, 8.2
+ * Requirements: 1.1, 1.2, 2.2, 4.2, 8.1, 8.2
  * - Displays popular movies on launch
  * - Supports pagination for loading more movies
  * - Allows switching between categories
  * - Processes intents and emits immutable states
+ * - Emits NavigateToMovieDetail effect when movie is clicked
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getMoviesUseCase: GetMoviesUseCase
-) : MviViewModel<HomeIntent, HomeState>() {
+) : MviViewModel<HomeIntent, HomeState, HomeEffect>() {
 
     private val _state = MutableStateFlow(HomeState.Initial)
     override val state: StateFlow<HomeState> = _state.asStateFlow()
@@ -43,7 +45,17 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.SelectCategory -> selectCategory(intent.category)
             is HomeIntent.LoadNextPage -> loadNextPage()
             is HomeIntent.Retry -> retry()
+            is HomeIntent.MovieClicked -> onMovieClicked(intent.movieId)
         }
+    }
+    
+    /**
+     * Handle movie click by emitting navigation effect.
+     * Requirements: 4.2 - WHEN the HomeViewModel needs to navigate to movie details 
+     * THEN the HomeViewModel SHALL emit a navigation Effect
+     */
+    private fun onMovieClicked(movieId: Int) {
+        sendEffect(HomeEffect.NavigateToMovieDetail(movieId))
     }
 
 
