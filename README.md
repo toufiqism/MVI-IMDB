@@ -8,12 +8,13 @@ A modern Android movie discovery app built with **Jetpack Compose**, **MVI archi
 - 👆 **Swipe Navigation** - Swipe left/right to switch between categories
 - 🔍 **Search** - Find movies by title with debounced search (300ms, min 2 chars)
 - 📖 **Movie Details** - View comprehensive movie info including cast, genres, and similar movies
-- 🎭 **Actor Filmography** - Tap on any cast member to explore all their movies
-- ❤️ **Favorites** - Save movies locally for quick access
+- 🎭 **Actor Filmography** - Tap on any cast member to explore all their movies (sorted by release date)
+- ❤️ **Favorites** - Save movies locally for quick access with confirmation feedback
 - 📴 **Offline Support** - Cached data available without internet
 - ♾️ **Infinite Scroll** - Automatic pagination when scrolling
 - ⚡ **Optimized Performance** - Recomposition-optimized with immutable collections and stable annotations
 - 🎨 **Custom Typography** - Anta font family throughout the app
+- 🔔 **MVI Effects** - Clean separation of one-time events (navigation, toasts) from persistent UI state
 
 ## Screenshots
 
@@ -94,7 +95,8 @@ com.tofiq.mvi_imdb/
 │   ├── base/                # MVI base classes
 │   │   ├── MviIntent.kt     # User action marker interface
 │   │   ├── MviState.kt      # UI state marker interface
-│   │   └── MviViewModel.kt  # Base ViewModel with MVI pattern
+│   │   ├── MviEffect.kt     # One-time event marker interface
+│   │   └── MviViewModel.kt  # Base ViewModel with MVI + Effects
 │   ├── components/          # Reusable UI components
 │   │   ├── MovieCard.kt
 │   │   ├── MovieGrid.kt
@@ -109,15 +111,17 @@ com.tofiq.mvi_imdb/
 │       │   ├── HomeScreen.kt
 │       │   ├── HomeViewModel.kt
 │       │   ├── HomeState.kt
-│       │   └── HomeIntent.kt
-│       ├── detail/
-│       ├── search/
-│       ├── favorites/
+│       │   ├── HomeIntent.kt
+│       │   └── HomeEffect.kt
+│       ├── detail/          # + DetailEffect.kt
+│       ├── search/          # + SearchEffect.kt
+│       ├── favorites/       # + FavoritesEffect.kt
 │       └── castmovies/      # Actor filmography screen
 │           ├── CastMoviesScreen.kt
 │           ├── CastMoviesViewModel.kt
 │           ├── CastMoviesState.kt
-│           └── CastMoviesIntent.kt
+│           ├── CastMoviesIntent.kt
+│           └── CastMoviesEffect.kt
 │
 ├── di/                      # Dependency Injection (Hilt modules)
 │   ├── AppModule.kt
@@ -150,9 +154,9 @@ MVI stands for **Model-View-Intent**. It's a unidirectional data flow pattern th
 │    │  VIEW   │ ──────────▶  │  VIEWMODEL  │ ──────────▶      │
 │    │(Screen) │              │  (Process)  │              │    │
 │    └─────────┘              └─────────────┘              │    │
-│         ▲                                                │    │
-│         │                    State                       │    │
-│         └────────────────────────────────────────────────┘    │
+│         ▲                          │                     │    │
+│         │         State            │ Effect (one-time)   │    │
+│         └──────────────────────────┴─────────────────────┘    │
 │                                                               │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -161,8 +165,9 @@ MVI stands for **Model-View-Intent**. It's a unidirectional data flow pattern th
 1. **User Action** → User taps a button, scrolls, types text
 2. **Intent** → Action is converted to an Intent (e.g., `HomeIntent.LoadMovies`)
 3. **ViewModel** → Processes the intent, calls use cases, updates state
-4. **State** → New immutable state is emitted
-5. **View** → Compose observes state and recomposes UI
+4. **State** → New immutable state is emitted (persistent UI data)
+5. **Effect** → One-time events emitted via SharedFlow (navigation, toasts)
+6. **View** → Compose observes state and collects effects
 
 #### Example: Loading Movies
 
@@ -484,20 +489,26 @@ interface MviIntent
 // MviState.kt - Marker interface for all states
 interface MviState
 
+// MviEffect.kt - Marker interface for one-time events
+interface MviEffect
+
 // MviViewModel.kt - Base class all ViewModels extend
-abstract class MviViewModel<I : MviIntent, S : MviState> : ViewModel() {
+abstract class MviViewModel<I : MviIntent, S : MviState, E : MviEffect> : ViewModel() {
     abstract val state: StateFlow<S>
+    abstract val effect: SharedFlow<E>  // One-time events (navigation, toasts)
     abstract fun processIntent(intent: I)
+    protected fun emitEffect(effect: E) { /* ... */ }
 }
 ```
 
 #### Screen Structure
 
-Each screen has 4 files:
+Each screen has 5 files:
 1. **Screen.kt** - Composable UI
 2. **ViewModel.kt** - State management
 3. **State.kt** - UI state data class
 4. **Intent.kt** - User actions sealed interface
+5. **Effect.kt** - One-time events (navigation, messages)
 
 ```kotlin
 // CastMoviesIntent.kt
@@ -515,6 +526,13 @@ data class CastMoviesState(
     val isLoading: Boolean = false,
     val error: String? = null
 ) : MviState
+
+// DetailEffect.kt - One-time events for detail screen
+sealed interface DetailEffect : MviEffect {
+    data class NavigateToMovie(val movieId: Int) : DetailEffect
+    data class ShowFavoriteMessage(val added: Boolean) : DetailEffect
+    data class NavigateToCastMovies(val castId: Int, val name: String) : DetailEffect
+}
 ```
 
 #### Compose UI with State Observation
@@ -522,11 +540,20 @@ data class CastMoviesState(
 ```kotlin
 @Composable
 fun HomeScreen(
-    onMovieClick: (Int) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     // Observe state - recomposes when state changes
     val state by viewModel.state.collectAsState()
+    
+    // Collect one-time effects (navigation, toasts)
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is HomeEffect.NavigateToDetail -> navController.navigate("detail/${effect.movieId}")
+                is HomeEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
+            }
+        }
+    }
     
     // Remember callbacks to prevent recomposition
     val onCategorySelected = remember(viewModel) {
