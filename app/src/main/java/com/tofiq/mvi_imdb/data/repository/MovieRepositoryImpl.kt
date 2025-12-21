@@ -2,12 +2,15 @@ package com.tofiq.mvi_imdb.data.repository
 
 import com.tofiq.mvi_imdb.data.local.LocalDataSource
 import com.tofiq.mvi_imdb.data.mapper.toCastList
+import com.tofiq.mvi_imdb.data.mapper.toCastMovie
+import com.tofiq.mvi_imdb.data.mapper.toCastMovieEntity
 import com.tofiq.mvi_imdb.data.mapper.toCastMovieList
 import com.tofiq.mvi_imdb.data.mapper.toDomain
 import com.tofiq.mvi_imdb.data.mapper.toDomainList
 import com.tofiq.mvi_imdb.data.mapper.toEntity
 import com.tofiq.mvi_imdb.data.mapper.toFavoriteEntity
 import com.tofiq.mvi_imdb.data.mapper.toFavoriteDomainList
+import com.tofiq.mvi_imdb.data.mapper.toEntity
 import com.tofiq.mvi_imdb.data.remote.RemoteDataSource
 import com.tofiq.mvi_imdb.domain.model.CastMovie
 import com.tofiq.mvi_imdb.domain.model.Category
@@ -69,25 +72,34 @@ class MovieRepositoryImpl @Inject constructor(
 
         when (val detailResponse = remoteDataSource.getMovieDetail(movieId)) {
             is Resource.Success -> {
-                val detail = detailResponse.data
-                
-                // Fetch credits
+                val detailDto = detailResponse.data
+
+                // Fetch credits and similar movies
                 val cast = when (val creditsResponse = remoteDataSource.getMovieCredits(movieId)) {
                     is Resource.Success -> creditsResponse.data.cast.take(10).toCastList()
                     else -> emptyList()
                 }
-                
-                // Fetch similar movies
                 val similarMovies = when (val similarResponse = remoteDataSource.getSimilarMovies(movieId)) {
                     is Resource.Success -> similarResponse.data.results.take(10).toDomainList()
                     else -> emptyList()
                 }
-                
+
+                // Cache the movie detail
+                localDataSource.cacheMovieDetail(detailDto.toEntity(cast, similarMovies))
+
                 val isFavorite = localDataSource.isFavorite(movieId)
-                
-                emit(Resource.Success(detail.toDomain(cast, similarMovies, isFavorite)))
+                emit(Resource.Success(detailDto.toDomain(cast, similarMovies, isFavorite)))
             }
-            is Resource.Error -> emit(Resource.Error(detailResponse.message))
+            is Resource.Error -> {
+                // On network error, try to load from cache
+                val cachedDetail = localDataSource.getMovieDetail(movieId)
+                if (cachedDetail != null) {
+                    val isFavorite = localDataSource.isFavorite(movieId)
+                    emit(Resource.Success(cachedDetail.toDomain(isFavorite)))
+                } else {
+                    emit(Resource.Error(detailResponse.message))
+                }
+            }
             is Resource.Loading -> { /* Already emitted */ }
         }
     }
@@ -98,13 +110,25 @@ class MovieRepositoryImpl @Inject constructor(
         when (val response = remoteDataSource.searchMovies(query, page)) {
             is Resource.Success -> {
                 val movies = response.data.results.toDomainList()
+                localDataSource.cacheSearchResults(query, page, movies.map { it.toEntity(Category.POPULAR, 0) })
                 val favoriteIds = getFavoriteIds()
                 val moviesWithFavorites = movies.map { 
                     it.copy(isFavorite = it.id in favoriteIds) 
                 }
                 emit(Resource.Success(moviesWithFavorites))
             }
-            is Resource.Error -> emit(Resource.Error(response.message))
+            is Resource.Error -> {
+                val cached = localDataSource.getSearchResults(query, page)
+                if (cached.isNotEmpty()) {
+                    val favoriteIds = getFavoriteIds()
+                    val movies = cached.map { entity ->
+                        entity.toDomain(isFavorite = entity.id in favoriteIds)
+                    }
+                    emit(Resource.Error(response.message, movies))
+                } else {
+                    emit(Resource.Error(response.message))
+                }
+            }
             is Resource.Loading -> { /* Already emitted */ }
         }
     }
@@ -139,9 +163,17 @@ class MovieRepositoryImpl @Inject constructor(
                 val movies = response.data.cast
                     .toCastMovieList()
                     .sortedByDescending { it.releaseDate ?: "" }
+                localDataSource.cacheCastMovies(personId, movies.map { it.toCastMovieEntity(personId) })
                 emit(Resource.Success(movies))
             }
-            is Resource.Error -> emit(Resource.Error(response.message))
+            is Resource.Error -> {
+                val cached = localDataSource.getCastMovies(personId)
+                if (cached.isNotEmpty()) {
+                    emit(Resource.Error(response.message, cached.toCastMovieList()))
+                } else {
+                    emit(Resource.Error(response.message))
+                }
+            }
             is Resource.Loading -> { /* Already emitted */ }
         }
     }

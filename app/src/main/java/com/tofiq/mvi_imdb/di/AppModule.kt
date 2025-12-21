@@ -1,8 +1,11 @@
 package com.tofiq.mvi_imdb.di
 
 import com.tofiq.mvi_imdb.data.local.LocalDataSource
+import com.tofiq.mvi_imdb.data.local.dao.CastMovieDao
 import com.tofiq.mvi_imdb.data.local.dao.FavoriteDao
 import com.tofiq.mvi_imdb.data.local.dao.MovieDao
+import com.tofiq.mvi_imdb.data.local.dao.MovieDetailDao
+import com.tofiq.mvi_imdb.data.local.dao.SearchDao
 import com.tofiq.mvi_imdb.data.remote.RemoteDataSource
 import com.tofiq.mvi_imdb.data.remote.api.TmdbApiService
 import dagger.Module
@@ -39,6 +42,9 @@ object AppModule {
     @Singleton
     fun provideLocalDataSource(
         movieDao: MovieDao,
-        favoriteDao: FavoriteDao
-    ): LocalDataSource = LocalDataSource(movieDao, favoriteDao)
+        favoriteDao: FavoriteDao,
+        movieDetailDao: MovieDetailDao,
+        searchDao: SearchDao,
+        castMovieDao: CastMovieDao
+    ): LocalDataSource = LocalDataSource(movieDao, favoriteDao, movieDetailDao, searchDao, castMovieDao)
 }

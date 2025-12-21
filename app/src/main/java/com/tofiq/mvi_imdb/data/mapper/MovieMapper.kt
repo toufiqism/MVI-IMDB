@@ -54,7 +54,8 @@ fun MovieDetailDto.toDomain(
     overview = overview ?: "",
     cast = cast,
     similarMovies = similarMovies,
-    isFavorite = isFavorite
+    isFavorite = isFavorite,
+    tagline = tagline
 )
 
 /**
