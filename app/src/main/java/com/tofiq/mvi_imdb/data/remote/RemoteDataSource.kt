@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.IOException
+import java.net.SocketTimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -54,13 +55,20 @@ class RemoteDataSource @Inject constructor(
                 Resource.Success(apiCall())
             } catch (e: HttpException) {
                 val errorMessage = when (e.code()) {
+                    400 -> "Bad request. Please check your input."
                     401 -> "Authentication failed. Please check API key."
+                    403 -> "Forbidden. You don't have permission to access this."
                     404 -> "Content not found."
                     429 -> "Too many requests. Please try again later."
+                    502 -> "Bad gateway. Please try again later."
+                    503 -> "Service unavailable. Please try again later."
+                    504 -> "Gateway timeout. Please try again later."
                     in 500..599 -> "Server error. Please try again later."
                     else -> e.message() ?: "Unknown HTTP error"
                 }
                 Resource.Error(errorMessage)
+            } catch (e: SocketTimeoutException) {
+                Resource.Error("Connection timed out. Please try again.")
             } catch (e: IOException) {
                 Resource.Error("Network error. Please check your connection.")
             } catch (e: Exception) {
