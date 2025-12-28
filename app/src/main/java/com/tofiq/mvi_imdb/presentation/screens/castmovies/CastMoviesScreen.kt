@@ -1,5 +1,13 @@
 package com.tofiq.mvi_imdb.presentation.screens.castmovies
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,11 +23,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,41 +39,51 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import com.tofiq.mvi_imdb.domain.model.CastMovie
 import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
+import com.tofiq.mvi_imdb.presentation.components.ShimmerBox
+import com.tofiq.mvi_imdb.ui.theme.AnimationSpecs
+import com.tofiq.mvi_imdb.ui.theme.VibrantBlue
+import com.tofiq.mvi_imdb.ui.theme.VibrantPurple
 import com.tofiq.mvi_imdb.util.Constants
 import kotlinx.collections.immutable.ImmutableList
-
+import kotlinx.coroutines.delay
 
 /**
- * Cast Movies screen displaying all movies featuring a specific actor.
+ * Enhanced Cast Movies screen with professional animations.
+ * 
+ * Features:
+ * - Animated actor header with profile image
+ * - Staggered grid item entrance
+ * - Enhanced movie cards with character roles
  * 
  * Requirements: 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 4.1, 4.2, 4.3
- * - Display movies in a grid format consistent with other movie lists
- * - Display loading indicator during API request
- * - Display error message with retry option on failure
- * - Show actor's name in the app bar or header
- * - Show actor's profile photo if available
- * - Display placeholder image if profile photo unavailable
- * - Show movie poster, title, release year, and character name
- * - Display placeholder image for movies without poster
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,18 +97,22 @@ fun CastMoviesScreen(
 ) {
     val state by viewModel.state.collectAsState()
     
-    // Collect effects for navigation and error handling
-    // Requirements: 3.1, 3.2 - Use LaunchedEffect with effect flow, process once without replay
+    var isScreenVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(100)
+        isScreenVisible = true
+    }
+    
+    // Collect effects
     CollectEffect(effect = viewModel.effect) { effect ->
         when (effect) {
             is CastMoviesEffect.NavigateToMovieDetail -> onMovieClick(effect.movieId)
-            is CastMoviesEffect.ShowError -> {
-                // Error is shown via state, this is for transient notifications
-            }
+            is CastMoviesEffect.ShowError -> { }
         }
     }
     
-    // Load cast movies when screen is displayed
+    // Load cast movies
     LaunchedEffect(personId) {
         viewModel.processIntent(
             CastMoviesIntent.LoadCastMovies(
@@ -103,9 +127,10 @@ fun CastMoviesScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    ActorHeader(
+                    AnimatedActorHeader(
                         personName = state.personName.ifEmpty { personName },
-                        profilePath = state.profilePath ?: profilePath
+                        profilePath = state.profilePath ?: profilePath,
+                        isVisible = isScreenVisible
                     )
                 },
                 navigationIcon = {
@@ -115,7 +140,10 @@ fun CastMoviesScreen(
                             contentDescription = "Back"
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { paddingValues ->
@@ -135,7 +163,7 @@ fun CastMoviesScreen(
                     )
                 }
                 state.movies.isEmpty() -> {
-                    EmptyMoviesView()
+                    AnimatedEmptyMoviesView()
                 }
                 else -> {
                     CastMoviesGrid(
@@ -151,41 +179,71 @@ fun CastMoviesScreen(
 }
 
 /**
- * Actor header displaying profile photo and name.
- * Requirements: 2.1, 2.2, 2.3
+ * Animated actor header with profile image.
  */
 @Composable
-private fun ActorHeader(
+private fun AnimatedActorHeader(
     personName: String,
     profilePath: String?,
+    isVisible: Boolean,
     modifier: Modifier = Modifier
 ) {
     val profileUrl = remember(profilePath) {
         Constants.getProfileUrl(profilePath)
     }
     
+    val scale by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0.8f,
+        animationSpec = AnimationSpecs.BouncySpring,
+        label = "headerScale"
+    )
+    
+    val alpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(AnimationSpecs.MEDIUM_DURATION),
+        label = "headerAlpha"
+    )
+    
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
+        modifier = modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+            this.alpha = alpha
+        }
     ) {
-        // Profile photo or placeholder
-        if (profileUrl != null) {
-            AsyncImage(
-                model = profileUrl,
-                contentDescription = personName,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            // Placeholder when profile photo unavailable (Requirement 2.3)
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
+        // Profile photo
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .shadow(4.dp, CircleShape)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            if (profileUrl != null) {
+                SubcomposeAsyncImage(
+                    model = profileUrl,
+                    contentDescription = personName,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                ) {
+                    when (painter.state) {
+                        is AsyncImagePainter.State.Loading -> {
+                            ShimmerBox(modifier = Modifier.fillMaxSize(), cornerRadius = 22.dp)
+                        }
+                        is AsyncImagePainter.State.Error -> {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        else -> SubcomposeAsyncImageContent()
+                    }
+                }
+            } else {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = "No profile photo",
@@ -197,20 +255,25 @@ private fun ActorHeader(
         
         Spacer(modifier = Modifier.width(12.dp))
         
-        Text(
-            text = personName,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column {
+            Text(
+                text = personName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Filmography",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
-
 /**
- * Grid displaying cast movies.
- * Requirements: 1.3, 4.1, 4.2, 4.3
+ * Cast movies grid with staggered animations.
  */
 @Composable
 private fun CastMoviesGrid(
@@ -220,109 +283,174 @@ private fun CastMoviesGrid(
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        items(
+        itemsIndexed(
             items = movies,
-            key = { it.id },
-            contentType = { "cast_movie" }
-        ) { movie ->
+            key = { _, movie -> movie.id },
+            contentType = { _, _ -> "cast_movie" }
+        ) { index, movie ->
             val onClickRemembered = remember(movie.id) {
                 { onMovieClick(movie.id) }
             }
-            CastMovieCard(
+            EnhancedCastMovieCard(
                 movie = movie,
-                onClick = onClickRemembered
+                onClick = onClickRemembered,
+                index = index
             )
         }
     }
 }
 
 /**
- * Card displaying a movie from an actor's filmography.
- * Requirements: 4.1, 4.2, 4.3
- * - Shows movie poster, title, and release year
- * - Shows character name the actor played
- * - Displays placeholder for movies without poster
+ * Enhanced cast movie card with animations.
  */
 @Composable
-private fun CastMovieCard(
+private fun EnhancedCastMovieCard(
     movie: CastMovie,
     onClick: () -> Unit,
+    index: Int,
     modifier: Modifier = Modifier
 ) {
     val posterUrl = remember(movie.posterPath) {
         Constants.getPosterUrl(movie.posterPath)
     }
     
+    var hasAppeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { hasAppeared = true }
+    
+    val staggerDelay = (index * AnimationSpecs.STAGGER_DELAY_FAST).coerceAtMost(400)
+    
+    val entranceAlpha by animateFloatAsState(
+        targetValue = if (hasAppeared) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = AnimationSpecs.MEDIUM_DURATION,
+            delayMillis = staggerDelay
+        ),
+        label = "cardAlpha"
+    )
+    
+    val entranceScale by animateFloatAsState(
+        targetValue = if (hasAppeared) 1f else 0.85f,
+        animationSpec = tween(
+            durationMillis = AnimationSpecs.MEDIUM_DURATION,
+            delayMillis = staggerDelay
+        ),
+        label = "cardScale"
+    )
+    
+    val entranceOffset by animateFloatAsState(
+        targetValue = if (hasAppeared) 0f else 30f,
+        animationSpec = tween(
+            durationMillis = AnimationSpecs.MEDIUM_DURATION,
+            delayMillis = staggerDelay
+        ),
+        label = "cardOffset"
+    )
+    
     Card(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = entranceAlpha
+                scaleX = entranceScale
+                scaleY = entranceScale
+                translationY = entranceOffset
+            },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column {
-            // Movie poster or placeholder (Requirement 4.3)
-            if (posterUrl != null) {
-                AsyncImage(
-                    model = posterUrl,
-                    contentDescription = movie.title,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(2f / 3f)
-                        .clip(MaterialTheme.shapes.medium),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                // Placeholder when poster unavailable
+            // Movie poster
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f)
+            ) {
+                if (posterUrl != null) {
+                    SubcomposeAsyncImage(
+                        model = posterUrl,
+                        contentDescription = movie.title,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)),
+                        contentScale = ContentScale.Crop
+                    ) {
+                        when (painter.state) {
+                            is AsyncImagePainter.State.Loading -> {
+                                ShimmerBox(modifier = Modifier.fillMaxSize(), cornerRadius = 0.dp)
+                            }
+                            else -> SubcomposeAsyncImageContent()
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Movie,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                // Gradient overlay
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(2f / 3f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No Image",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                        .height(60.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.5f)
+                                )
+                            )
+                        )
+                )
             }
             
-            // Movie info - title, year, and character
+            // Movie info
             Column(
                 modifier = Modifier
-                    .padding(8.dp)
-                    .height(64.dp)
+                    .padding(10.dp)
+                    .height(72.dp)
             ) {
-                // Title (Requirement 4.1)
                 Text(
                     text = movie.title,
                     style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 
-                // Release year (Requirement 4.1)
                 if (movie.releaseYear.isNotEmpty()) {
                     Text(
                         text = movie.releaseYear,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
-                // Character name (Requirement 4.2)
                 movie.character?.takeIf { it.isNotBlank() }?.let { character ->
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "as $character",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -331,29 +459,70 @@ private fun CastMovieCard(
 }
 
 /**
- * Empty state view when no movies are found.
+ * Animated empty state for no movies.
  */
 @Composable
-private fun EmptyMoviesView(
+private fun AnimatedEmptyMoviesView(
     modifier: Modifier = Modifier
 ) {
+    var isVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(100)
+        isVisible = true
+    }
+    
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn() + scaleIn(animationSpec = AnimationSpecs.BouncySpring)
         ) {
-            Text(
-                text = "No movies found",
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                text = "This actor has no movie credits available",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    VibrantBlue.copy(alpha = 0.2f),
+                                    VibrantPurple.copy(alpha = 0.1f)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Movie,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = VibrantBlue
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "No movies found",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = "This actor has no movie credits available",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }

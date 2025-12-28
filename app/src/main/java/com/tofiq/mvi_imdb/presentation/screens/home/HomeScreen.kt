@@ -103,7 +103,7 @@ fun HomeScreen(
             onCategorySelected = onCategorySelected
         )
 
-        // Swipeable content pager
+         // Swipeable content pager
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),

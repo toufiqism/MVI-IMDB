@@ -1,6 +1,16 @@
 package com.tofiq.mvi_imdb.presentation.screens.detail
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +25,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -37,42 +48,56 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import com.tofiq.mvi_imdb.domain.model.Cast
 import com.tofiq.mvi_imdb.domain.model.Movie
 import com.tofiq.mvi_imdb.domain.model.MovieDetail
 import com.tofiq.mvi_imdb.presentation.base.CollectEffect
+import com.tofiq.mvi_imdb.presentation.components.CompactMovieCard
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
+import com.tofiq.mvi_imdb.presentation.components.ShimmerBox
+import com.tofiq.mvi_imdb.presentation.components.ShimmerDetailScreen
+import com.tofiq.mvi_imdb.ui.theme.AnimationSpecs
+import com.tofiq.mvi_imdb.ui.theme.RatingStar
+import com.tofiq.mvi_imdb.ui.theme.VibrantPink
+import com.tofiq.mvi_imdb.ui.theme.VibrantRed
 import com.tofiq.mvi_imdb.util.Constants
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-
 /**
- * Detail screen displaying comprehensive movie information.
+ * Enhanced detail screen with professional animations and effects.
+ * 
+ * Features:
+ * - Parallax backdrop scrolling
+ * - Animated section entrances
+ * - Pulsing favorite button
+ * - Staggered cast and similar movies animations
  * 
  * Requirements: 4.2, 4.3, 4.4, 5.1, 1.1 (cast-movies), 3.1, 3.2
- * - Shows backdrop image, poster, title, release date, runtime, genres, rating, and overview
- * - Shows cast list with actor photos and character names
- * - Shows similar movie recommendations
- * - Displays a favorite toggle button
- * - Enables navigation to cast movies screen when user taps on a cast member
- * - Collects Effects for navigation and transient messages
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,14 +111,14 @@ fun DetailScreen(
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
     
     // Load movie detail when movieId changes
-    androidx.compose.runtime.LaunchedEffect(movieId) {
+    LaunchedEffect(movieId) {
         viewModel.processIntent(DetailIntent.LoadDetail(movieId))
     }
     
     // Collect effects for navigation and messages
-    // Requirements: 3.1, 3.2 - Use LaunchedEffect to collect effects, process once without replay
     CollectEffect(effect = viewModel.effect) { effect ->
         when (effect) {
             is DetailEffect.NavigateToMovie -> onMovieClick(effect.movieId)
@@ -111,42 +136,37 @@ fun DetailScreen(
         }
     }
 
+    // Calculate parallax offset based on scroll
+    val parallaxOffset = scrollState.value * 0.5f
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .background(
+                                color = Color.Black.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = Color.White
                         )
                     }
                 },
                 actions = {
                     state.movieDetail?.let { detail ->
-                        IconButton(
+                        AnimatedFavoriteButton(
+                            isFavorite = detail.isFavorite,
                             onClick = { viewModel.processIntent(DetailIntent.ToggleFavorite) }
-                        ) {
-                            Icon(
-                                imageVector = if (detail.isFavorite) {
-                                    Icons.Filled.Favorite
-                                } else {
-                                    Icons.Filled.FavoriteBorder
-                                },
-                                contentDescription = if (detail.isFavorite) {
-                                    "Remove from favorites"
-                                } else {
-                                    "Add to favorites"
-                                },
-                                tint = if (detail.isFavorite) {
-                                    Color.Red
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                        }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -162,7 +182,7 @@ fun DetailScreen(
         ) {
             when {
                 state.isLoading -> {
-                    LoadingIndicator()
+                    ShimmerDetailScreen()
                 }
                 state.error != null -> {
                     ErrorView(
@@ -173,6 +193,8 @@ fun DetailScreen(
                 state.movieDetail != null -> {
                     DetailContent(
                         movieDetail = state.movieDetail!!,
+                        scrollState = scrollState,
+                        parallaxOffset = parallaxOffset,
                         onMovieClick = { movieId -> 
                             viewModel.processIntent(DetailIntent.SimilarMovieClicked(movieId))
                         },
@@ -186,61 +208,193 @@ fun DetailScreen(
     }
 }
 
-
+/**
+ * Animated favorite button with pulse effect.
+ */
 @Composable
-private fun DetailContent(
-    movieDetail: MovieDetail,
-    onMovieClick: (Int) -> Unit,
-    onCastClick: (personId: Int, personName: String, profilePath: String?) -> Unit
+private fun AnimatedFavoriteButton(
+    isFavorite: Boolean,
+    onClick: () -> Unit
 ) {
-    Column(
+    val scale by animateFloatAsState(
+        targetValue = if (isFavorite) 1.2f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.4f,
+            stiffness = 300f
+        ),
+        label = "favoriteScale"
+    )
+    
+    val rotation by animateFloatAsState(
+        targetValue = if (isFavorite) 360f else 0f,
+        animationSpec = tween(AnimationSpecs.MEDIUM_DURATION),
+        label = "favoriteRotation"
+    )
+    
+    IconButton(
+        onClick = onClick,
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .padding(8.dp)
+            .background(
+                color = Color.Black.copy(alpha = 0.3f),
+                shape = CircleShape
+            )
     ) {
-        // Backdrop with gradient overlay
-        BackdropSection(movieDetail = movieDetail)
-        
-        // Movie info section
-        MovieInfoSection(movieDetail = movieDetail)
-        
-        // Overview section
-        OverviewSection(overview = movieDetail.overview)
-        
-        // Cast section
-        if (movieDetail.cast.isNotEmpty()) {
-            CastSection(
-                cast = movieDetail.cast,
-                onCastClick = onCastClick
-            )
-        }
-        
-        // Similar movies section
-        if (movieDetail.similarMovies.isNotEmpty()) {
-            SimilarMoviesSection(
-                movies = movieDetail.similarMovies,
-                onMovieClick = onMovieClick
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
+        Icon(
+            imageVector = if (isFavorite) {
+                Icons.Filled.Favorite
+            } else {
+                Icons.Filled.FavoriteBorder
+            },
+            contentDescription = if (isFavorite) {
+                "Remove from favorites"
+            } else {
+                "Add to favorites"
+            },
+            tint = if (isFavorite) VibrantRed else Color.White,
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                rotationZ = rotation
+            }
+        )
     }
 }
 
 @Composable
-private fun BackdropSection(movieDetail: MovieDetail) {
+private fun DetailContent(
+    movieDetail: MovieDetail,
+    scrollState: androidx.compose.foundation.ScrollState,
+    parallaxOffset: Float,
+    onMovieClick: (Int) -> Unit,
+    onCastClick: (personId: Int, personName: String, profilePath: String?) -> Unit
+) {
+    var isContentVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(100)
+        isContentVisible = true
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // Backdrop with parallax effect
+        BackdropSection(
+            movieDetail = movieDetail,
+            parallaxOffset = parallaxOffset
+        )
+        
+        // Movie info section with animated entrance
+        AnimatedVisibility(
+            visible = isContentVisible,
+            enter = fadeIn(
+                animationSpec = tween(AnimationSpecs.MEDIUM_DURATION)
+            ) + slideInVertically(
+                animationSpec = tween(AnimationSpecs.MEDIUM_DURATION)
+            ) { it / 4 }
+        ) {
+            MovieInfoSection(movieDetail = movieDetail)
+        }
+        
+        // Overview section
+        AnimatedVisibility(
+            visible = isContentVisible,
+            enter = fadeIn(
+                animationSpec = tween(
+                    durationMillis = AnimationSpecs.MEDIUM_DURATION,
+                    delayMillis = 100
+                )
+            ) + slideInVertically(
+                animationSpec = tween(
+                    durationMillis = AnimationSpecs.MEDIUM_DURATION,
+                    delayMillis = 100
+                )
+            ) { it / 4 }
+        ) {
+            OverviewSection(overview = movieDetail.overview)
+        }
+        
+        // Cast section
+        if (movieDetail.cast.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = isContentVisible,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = AnimationSpecs.MEDIUM_DURATION,
+                        delayMillis = 200
+                    )
+                ) + slideInHorizontally(
+                    animationSpec = tween(
+                        durationMillis = AnimationSpecs.MEDIUM_DURATION,
+                        delayMillis = 200
+                    )
+                ) { it / 4 }
+            ) {
+                CastSection(
+                    cast = movieDetail.cast,
+                    onCastClick = onCastClick
+                )
+            }
+        }
+        
+        // Similar movies section
+        if (movieDetail.similarMovies.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = isContentVisible,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = AnimationSpecs.MEDIUM_DURATION,
+                        delayMillis = 300
+                    )
+                ) + slideInHorizontally(
+                    animationSpec = tween(
+                        durationMillis = AnimationSpecs.MEDIUM_DURATION,
+                        delayMillis = 300
+                    )
+                ) { it / 4 }
+            ) {
+                SimilarMoviesSection(
+                    movies = movieDetail.similarMovies,
+                    onMovieClick = onMovieClick
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun BackdropSection(
+    movieDetail: MovieDetail,
+    parallaxOffset: Float
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(16f / 9f)
+            .aspectRatio(16f / 10f)
     ) {
-        // Backdrop image
-        AsyncImage(
+        // Backdrop image with parallax
+        SubcomposeAsyncImage(
             model = Constants.getBackdropUrl(movieDetail.backdropPath),
             contentDescription = movieDetail.title,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationY = parallaxOffset * 0.3f
+                },
             contentScale = ContentScale.Crop
-        )
+        ) {
+            when (painter.state) {
+                is AsyncImagePainter.State.Loading -> {
+                    ShimmerBox(modifier = Modifier.fillMaxSize(), cornerRadius = 0.dp)
+                }
+                else -> SubcomposeAsyncImageContent()
+            }
+        }
         
         // Gradient overlay
         Box(
@@ -250,7 +404,9 @@ private fun BackdropSection(movieDetail: MovieDetail) {
                     Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.7f)
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.5f),
+                            Color.Black.copy(alpha = 0.9f)
                         )
                     )
                 )
@@ -269,49 +425,68 @@ private fun BackdropSection(movieDetail: MovieDetail) {
                 color = Color.White
             )
             
+            Spacer(modifier = Modifier.height(8.dp))
+            
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Rating
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = "Rating",
-                        tint = Color.Yellow,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = movieDetail.formattedRating,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
-                }
-                
-                Text(text = "•", color = Color.White)
+                // Rating chip
+                RatingChip(rating = movieDetail.formattedRating)
                 
                 // Year
-                Text(
-                    text = movieDetail.releaseYear,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White
-                )
+                InfoChip(text = movieDetail.releaseYear)
                 
                 // Runtime
                 movieDetail.runtime?.let {
-                    Text(text = "•", color = Color.White)
-                    Text(
-                        text = movieDetail.formattedRuntime,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
+                    InfoChip(text = movieDetail.formattedRuntime)
                 }
             }
         }
     }
 }
 
+@Composable
+private fun RatingChip(rating: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .background(
+                color = Color.Black.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Star,
+            contentDescription = "Rating",
+            tint = RatingStar,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = rating,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+private fun InfoChip(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color.White.copy(alpha = 0.9f),
+        modifier = Modifier
+            .background(
+                color = Color.White.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    )
+}
 
 @Composable
 private fun MovieInfoSection(movieDetail: MovieDetail) {
@@ -320,13 +495,25 @@ private fun MovieInfoSection(movieDetail: MovieDetail) {
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        // Genres
+        // Genres as chips
         if (movieDetail.genres.isNotEmpty()) {
-            Text(
-                text = movieDetail.genresText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(movieDetail.genres.size) { index ->
+                    Text(
+                        text = movieDetail.genres[index],
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -341,7 +528,8 @@ private fun OverviewSection(overview: String) {
         Text(
             text = "Overview",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
         )
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -349,7 +537,8 @@ private fun OverviewSection(overview: String) {
         Text(
             text = overview,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.3
         )
     }
 }
@@ -362,7 +551,7 @@ private fun CastSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp)
+            .padding(top = 24.dp)
     ) {
         Text(
             text = "Cast",
@@ -371,43 +560,77 @@ private fun CastSection(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = cast.take(10),
-                key = { it.id },
-                contentType = { "cast" }
-            ) { castMember ->
+                key = { _, it -> it.id },
+                contentType = { _, _ -> "cast" }
+            ) { index, castMember ->
                 val onClickRemembered = remember(castMember.id) {
                     { onCastClick(castMember.id, castMember.name, castMember.profilePath) }
                 }
+                
                 CastItem(
                     cast = castMember,
-                    onClick = onClickRemembered
+                    onClick = onClickRemembered,
+                    index = index
                 )
             }
         }
     }
 }
 
-/**
- * Clickable cast item displaying actor photo and name.
- * 
- * Requirements: 1.1 (cast-movies)
- * - Enables navigation to cast movies screen when user taps on a cast member
- */
 @Composable
 private fun CastItem(
     cast: Cast,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    index: Int
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    var hasAppeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { hasAppeared = true }
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.9f else 1f,
+        animationSpec = AnimationSpecs.SnappySpring,
+        label = "castItemPress"
+    )
+    
+    val entranceAlpha by animateFloatAsState(
+        targetValue = if (hasAppeared) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = AnimationSpecs.MEDIUM_DURATION,
+            delayMillis = index * AnimationSpecs.STAGGER_DELAY_FAST
+        ),
+        label = "castEntranceAlpha"
+    )
+    
+    val entranceOffsetX by animateFloatAsState(
+        targetValue = if (hasAppeared) 0f else 30f,
+        animationSpec = tween(
+            durationMillis = AnimationSpecs.MEDIUM_DURATION,
+            delayMillis = index * AnimationSpecs.STAGGER_DELAY_FAST
+        ),
+        label = "castEntranceOffset"
+    )
+    
     Card(
         onClick = onClick,
-        modifier = Modifier.width(80.dp),
+        modifier = Modifier
+            .width(90.dp)
+            .graphicsLayer {
+                alpha = entranceAlpha
+                scaleX = scale
+                scaleY = scale
+                translationX = entranceOffsetX
+            },
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
@@ -417,30 +640,53 @@ private fun CastItem(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Profile image
-            AsyncImage(
+            SubcomposeAsyncImage(
                 model = Constants.getProfileUrl(cast.profilePath),
                 contentDescription = cast.name,
                 modifier = Modifier
                     .size(80.dp)
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+                    .shadow(4.dp, CircleShape),
                 contentScale = ContentScale.Crop
-            )
+            ) {
+                when (painter.state) {
+                    is AsyncImagePainter.State.Loading -> {
+                        ShimmerBox(modifier = Modifier.fillMaxSize(), cornerRadius = 40.dp)
+                    }
+                    is AsyncImagePainter.State.Error -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = cast.name.take(1),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    else -> SubcomposeAsyncImageContent()
+                }
+            }
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
             // Actor name
             Text(
                 text = cast.name,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
             )
             
             // Character name
             Text(
                 text = cast.character,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -448,7 +694,6 @@ private fun CastItem(
         }
     }
 }
-
 
 @Composable
 private fun SimilarMoviesSection(
@@ -458,7 +703,7 @@ private fun SimilarMoviesSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp)
+            .padding(top = 24.dp)
     ) {
         Text(
             text = "Similar Movies",
@@ -467,78 +712,26 @@ private fun SimilarMoviesSection(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = movies.take(10),
-                key = { it.id },
-                contentType = { "similar_movie" }
-            ) { movie ->
+                key = { _, it -> it.id },
+                contentType = { _, _ -> "similar_movie" }
+            ) { index, movie ->
                 val onClickRemembered = remember(movie.id) {
                     { onMovieClick(movie.id) }
                 }
-                SimilarMovieItem(
-                    movie = movie,
-                    onClick = onClickRemembered
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SimilarMovieItem(
-    movie: Movie,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.width(120.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column {
-            // Poster
-            AsyncImage(
-                model = Constants.getPosterUrl(movie.posterPath),
-                contentDescription = movie.title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(2f / 3f),
-                contentScale = ContentScale.Crop
-            )
-            
-            // Title
-            Column(
-                modifier = Modifier.padding(8.dp)
-            ) {
-                Text(
-                    text = movie.title,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
                 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = "Rating",
-                        tint = Color.Yellow,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
-                    Text(
-                        text = movie.formattedRating,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                CompactMovieCard(
+                    movie = movie,
+                    onClick = onClickRemembered,
+                    index = index
+                )
             }
         }
     }

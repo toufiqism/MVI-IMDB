@@ -15,6 +15,19 @@ A modern Android movie discovery app built with **Jetpack Compose**, **MVI archi
 - ⚡ **Optimized Performance** - Recomposition-optimized with immutable collections and stable annotations
 - 🎨 **Custom Typography** - Anta font family throughout the app
 - 🔔 **MVI Effects** - Clean separation of one-time events (navigation, toasts) from persistent UI state
+- 🌈 **Vibrant Colorful Theme** - Beautiful Material 3 color scheme with vibrant blues, purples, pinks, and accent colors
+- ✨ **Professional Animations** - Delightful, cinema-quality animations throughout the app including:
+  - Card press animations with scale, rotation, and elevation effects
+  - Staggered grid item entrance animations (fade + scale + slide)
+  - Gradient pill indicator for category tabs with smooth transitions
+  - Multi-ring loading spinner with gradient colors and pulse effects
+  - Parallax backdrop scrolling on detail screens
+  - Animated favorite button with rotation and pulse
+  - Bouncy navigation bar icons with accent colors
+  - Shimmer loading placeholders for professional loading states
+  - Animated empty states and error views
+  - Screen entrance animations with slide and fade
+- 🔧 **Optimized for Configuration Changes** - All animations and states properly survive screen rotations
 
 ## Screenshots
 
@@ -98,11 +111,12 @@ com.tofiq.mvi_imdb/
 │   │   ├── MviEffect.kt     # One-time event marker interface
 │   │   └── MviViewModel.kt  # Base ViewModel with MVI + Effects
 │   ├── components/          # Reusable UI components
-│   │   ├── MovieCard.kt
-│   │   ├── MovieGrid.kt
-│   │   ├── CategoryTabs.kt
-│   │   ├── LoadingIndicator.kt
-│   │   └── ErrorView.kt
+│   │   ├── MovieCard.kt        # Enhanced card with animations
+│   │   ├── MovieGrid.kt        # Optimized lazy grid
+│   │   ├── CategoryTabs.kt     # Gradient pill indicator tabs
+│   │   ├── LoadingIndicator.kt # Multi-ring animated spinner
+│   │   ├── ErrorView.kt        # Animated error with retry
+│   │   └── ShimmerEffect.kt    # Shimmer loading placeholders
 │   ├── navigation/          # Navigation setup
 │   │   ├── NavRoutes.kt     # Route definitions
 │   │   └── AppNavigation.kt # Navigation graph
@@ -130,8 +144,9 @@ com.tofiq.mvi_imdb/
 │   └── RepositoryModule.kt
 │
 ├── ui/theme/                # Material 3 theming
-│   ├── Color.kt
-│   ├── Theme.kt
+│   ├── Color.kt             # Vibrant color palette
+│   ├── Theme.kt             # Material 3 theme configuration
+│   ├── Animation.kt         # Animation utilities and specs
 │   └── Type.kt              # Custom Anta font
 │
 └── util/                    # Utilities
@@ -717,6 +732,7 @@ class CastMoviesSortingPropertyTest : FunSpec({
 | Category | Technology |
 |----------|------------|
 | UI | Jetpack Compose, Material 3, HorizontalPager |
+| Animations | Compose Animation APIs (Spring, Tween) |
 | Architecture | MVI, Clean Architecture |
 | Navigation | Navigation3 |
 | DI | Hilt |
@@ -765,6 +781,106 @@ The app integrates with [TMDB API](https://www.themoviedb.org/documentation/api)
 | `GET /movie/{id}/similar` | Similar movies |
 | `GET /search/movie` | Search movies |
 | `GET /person/{person_id}/movie_credits` | Actor's filmography |
+
+## 🎨 Theme & Animations
+
+### Colorful Theme
+
+The app features a vibrant Material 3 color scheme with:
+- **Primary**: Vibrant Blue (#2196F3)
+- **Secondary**: Vibrant Purple (#9C27B0)
+- **Tertiary**: Vibrant Pink (#E91E63)
+- **Accent Colors**: Orange, Teal, Green, Red, Yellow, Cyan
+- **Gradient Colors**: Cinema gradients, sunset gradients, ocean gradients
+- **Dark Theme**: Rich dark colors optimized for OLED displays
+
+The theme automatically adapts to light/dark mode while maintaining the vibrant color palette.
+
+### Professional Animations
+
+The app includes cinema-quality, GPU-accelerated animations throughout:
+
+1. **Movie Card Animations**
+   - **Press Effect**: Scale down to 95% with subtle rotation
+   - **Elevation Animation**: Dynamic shadow depth on interaction
+   - **Entrance Animation**: Staggered fade + scale + slide from bottom
+   - **Rating Badge**: Gradient background with star icon
+   - **Poster Loading**: Shimmer placeholder effect
+
+2. **Grid & List Animations**
+   - **Staggered Entrance**: 30ms delay per item (capped at 400ms)
+   - **Combined Effects**: Alpha fade + scale + translateY
+   - **Horizontal Lists**: Slide in from right with fade
+   - **Pagination Indicator**: Animated loading at bottom
+
+3. **Category Tabs**
+   - **Gradient Pill Indicator**: Smooth sliding with VibrantBlue → VibrantPurple gradient
+   - **Selection Animation**: Bouncy scale effect with FontWeight transition
+   - **Color Transitions**: Animated text color changes
+
+4. **Bottom Navigation**
+   - **Icon Animations**: Bouncy spring scale (1.15x) with vertical offset
+   - **Accent Colors**: Each tab has unique accent color (Blue/Purple/Pink)
+   - **Radial Glow**: Selected item gets radial gradient background
+   - **Rounded Corners**: Modern rounded top corners with shadow
+
+5. **Loading Indicators**
+   - **Multi-Ring Spinner**: Three animated rings with gradient colors
+   - **Outer Ring**: Clockwise rotation (1.5s), gradient sweep
+   - **Middle Ring**: Counter-clockwise rotation (1s)
+   - **Center**: Pulsing gradient dot
+   - **Animated Text**: "Loading..." with sequential dot animation
+   - **Shimmer Placeholders**: Full-screen shimmer grids matching layout
+
+6. **Detail Screen**
+   - **Parallax Backdrop**: Backdrop moves at 0.3x scroll speed
+   - **Section Entrances**: Staggered AnimatedVisibility with delays
+   - **Cast Items**: Circular profile with horizontal slide entrance
+   - **Favorite Button**: Rotation + scale animation on toggle
+   - **Rating Chip**: Gradient background with star icon
+
+7. **Empty & Error States**
+   - **Bounce-In Animation**: Spring-based scale entrance
+   - **Staggered Content**: Icon → Title → Message → Button
+   - **Pulsing Icons**: Gradient background with animated icon
+   - **Retry Button**: Scale animation on press
+
+8. **Search Screen**
+   - **Search Bar**: Focus scale animation (1.02x)
+   - **Clear Button**: Animated fade in/out with scale
+   - **Hint State**: Large icon with gradient background
+   - **Results**: Same staggered grid animations
+
+### Animation Specifications
+
+```kotlin
+object AnimationSpecs {
+    // Duration constants
+    const val INSTANT = 100
+    const val SHORT_DURATION = 200
+    const val MEDIUM_DURATION = 400
+    const val LONG_DURATION = 600
+    
+    // Stagger delays
+    const val STAGGER_DELAY_FAST = 30
+    const val STAGGER_DELAY_MEDIUM = 50
+    
+    // Spring configurations
+    val DefaultSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 200f)
+    val BouncySpring = spring<Float>(dampingRatio = 0.4f, stiffness = 150f)
+    val SnappySpring = spring<Float>(dampingRatio = 0.7f, stiffness = 300f)
+}
+```
+
+### Performance Optimizations
+
+All animations are optimized for 60fps performance:
+
+- **graphicsLayer**: All transforms use GPU-accelerated `graphicsLayer` modifier
+- **Remembered Animations**: Animation states are properly remembered
+- **Capped Delays**: Stagger delays capped at 400ms for large lists
+- **Stable Keys**: All list items have stable keys for efficient diffing
+- **Configuration Change Survival**: States preserved across rotations
 
 ## License
 
