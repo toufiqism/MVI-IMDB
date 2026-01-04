@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -44,9 +46,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tofiq.mvi_imdb.data.local.SettingsDataStore
+import com.tofiq.mvi_imdb.domain.model.AppSettings
+import com.tofiq.mvi_imdb.domain.model.ViewMode
 import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.presentation.components.MovieCard
+import com.tofiq.mvi_imdb.presentation.components.MovieListItem
 import com.tofiq.mvi_imdb.ui.theme.AnimationSpecs
 import com.tofiq.mvi_imdb.ui.theme.VibrantPink
 import com.tofiq.mvi_imdb.ui.theme.VibrantRed
@@ -76,9 +82,11 @@ import kotlinx.coroutines.launch
 fun FavoritesScreen(
     onMovieClick: (Int) -> Unit,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
-    viewModel: FavoritesViewModel = hiltViewModel()
+    viewModel: FavoritesViewModel = hiltViewModel(),
+    settingsDataStore: SettingsDataStore
 ) {
     val state by viewModel.state.collectAsState()
+    val settings by settingsDataStore.settings.collectAsState(initial = AppSettings())
     val scope = rememberCoroutineScope()
     
     var isScreenVisible by remember { mutableStateOf(false) }
@@ -126,10 +134,20 @@ fun FavoritesScreen(
                 AnimatedEmptyFavoritesView()
             }
             else -> {
-                FavoritesGrid(
-                    favorites = state.favorites,
-                    onMovieClick = onMovieClicked
-                )
+                when (settings.viewMode) {
+                    ViewMode.GRID -> {
+                        FavoritesGrid(
+                            favorites = state.favorites,
+                            onMovieClick = onMovieClicked
+                        )
+                    }
+                    ViewMode.LIST -> {
+                        FavoritesList(
+                            favorites = state.favorites,
+                            onMovieClick = onMovieClicked
+                        )
+                    }
+                }
             }
         }
     }
@@ -161,6 +179,38 @@ private fun FavoritesGrid(
             }
             
             MovieCard(
+                movie = movie,
+                onClick = onClickRemembered,
+                index = index
+            )
+        }
+    }
+}
+
+/**
+ * Favorites list view with animations.
+ */
+@Composable
+private fun FavoritesList(
+    favorites: ImmutableList<com.tofiq.mvi_imdb.domain.model.Movie>,
+    onMovieClick: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxSize()
+    ) {
+        itemsIndexed(
+            items = favorites,
+            key = { _, movie -> movie.id },
+            contentType = { _, _ -> "movie_list_item" }
+        ) { index, movie ->
+            val onClickRemembered = remember(movie.id) {
+                { onMovieClick(movie.id) }
+            }
+            
+            MovieListItem(
                 movie = movie,
                 onClick = onClickRemembered,
                 index = index

@@ -13,12 +13,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tofiq.mvi_imdb.data.local.SettingsDataStore
+import com.tofiq.mvi_imdb.domain.model.AppSettings
 import com.tofiq.mvi_imdb.domain.model.Category
+import com.tofiq.mvi_imdb.domain.model.ViewMode
 import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.CategoryTabs
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.presentation.components.MovieGrid
+import com.tofiq.mvi_imdb.presentation.components.MovieList
 
 /**
  * Home screen displaying categorized movie lists with swipe-to-change tabs.
@@ -34,9 +38,11 @@ import com.tofiq.mvi_imdb.presentation.components.MovieGrid
 @Composable
 fun HomeScreen(
     onMovieClick: (Int) -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    settingsDataStore: SettingsDataStore
 ) {
     val state by viewModel.state.collectAsState()
+    val settings by settingsDataStore.settings.collectAsState(initial = AppSettings())
     val categories = remember { Category.entries }
     
     // Collect effects for navigation and one-time events
@@ -123,12 +129,24 @@ fun HomeScreen(
                             )
                         }
                         else -> {
-                            MovieGrid(
-                                movies = state.movies,
-                                isLoadingMore = state.isLoadingMore,
-                                onMovieClick = onMovieClicked,
-                                onLoadMore = onLoadMore
-                            )
+                            when (settings.viewMode) {
+                                ViewMode.GRID -> {
+                                    MovieGrid(
+                                        movies = state.movies,
+                                        isLoadingMore = state.isLoadingMore,
+                                        onMovieClick = onMovieClicked,
+                                        onLoadMore = onLoadMore
+                                    )
+                                }
+                                ViewMode.LIST -> {
+                                    MovieList(
+                                        movies = state.movies,
+                                        isLoadingMore = state.isLoadingMore,
+                                        onMovieClick = onMovieClicked,
+                                        onLoadMore = onLoadMore
+                                    )
+                                }
+                            }
                         }
                     }
                 }

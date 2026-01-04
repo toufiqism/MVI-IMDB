@@ -59,3 +59,9 @@ data class CastMoviesRoute(
     val personName: String,
     val profilePath: String? = null
 ) : NavRoute
+
+/**
+ * Settings screen route - allows configuring app preferences.
+ */
+@Serializable
+data object SettingsRoute : NavRoute

@@ -50,10 +50,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tofiq.mvi_imdb.data.local.SettingsDataStore
+import com.tofiq.mvi_imdb.domain.model.AppSettings
+import com.tofiq.mvi_imdb.domain.model.ViewMode
 import com.tofiq.mvi_imdb.presentation.base.CollectEffect
 import com.tofiq.mvi_imdb.presentation.components.ErrorView
 import com.tofiq.mvi_imdb.presentation.components.LoadingIndicator
 import com.tofiq.mvi_imdb.presentation.components.MovieGrid
+import com.tofiq.mvi_imdb.presentation.components.MovieList
 import com.tofiq.mvi_imdb.ui.theme.AnimationSpecs
 import com.tofiq.mvi_imdb.ui.theme.VibrantBlue
 import com.tofiq.mvi_imdb.ui.theme.VibrantPurple
@@ -79,9 +83,11 @@ import kotlinx.coroutines.delay
 @Composable
 fun SearchScreen(
     onMovieClick: (Int) -> Unit,
-    viewModel: SearchViewModel = hiltViewModel()
+    viewModel: SearchViewModel = hiltViewModel(),
+    settingsDataStore: SettingsDataStore
 ) {
     val state by viewModel.state.collectAsState()
+    val settings by settingsDataStore.settings.collectAsState(initial = AppSettings())
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     
@@ -179,12 +185,24 @@ fun SearchScreen(
                     AnimatedSearchHint()
                 }
                 else -> {
-                    MovieGrid(
-                        movies = state.movies,
-                        isLoadingMore = state.isLoadingMore,
-                        onMovieClick = onMovieClicked,
-                        onLoadMore = onLoadMore
-                    )
+                    when (settings.viewMode) {
+                        ViewMode.GRID -> {
+                            MovieGrid(
+                                movies = state.movies,
+                                isLoadingMore = state.isLoadingMore,
+                                onMovieClick = onMovieClicked,
+                                onLoadMore = onLoadMore
+                            )
+                        }
+                        ViewMode.LIST -> {
+                            MovieList(
+                                movies = state.movies,
+                                isLoadingMore = state.isLoadingMore,
+                                onMovieClick = onMovieClicked,
+                                onLoadMore = onLoadMore
+                            )
+                        }
+                    }
                 }
             }
         }

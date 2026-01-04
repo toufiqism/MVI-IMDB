@@ -17,9 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -43,13 +45,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.rememberNavBackStack
+import com.tofiq.mvi_imdb.data.local.SettingsDataStore
 import com.tofiq.mvi_imdb.presentation.navigation.AppNavigation
 import com.tofiq.mvi_imdb.presentation.navigation.FavoritesRoute
 import com.tofiq.mvi_imdb.presentation.navigation.HomeRoute
 import com.tofiq.mvi_imdb.presentation.navigation.NavRoute
 import com.tofiq.mvi_imdb.presentation.navigation.SearchRoute
+import com.tofiq.mvi_imdb.presentation.navigation.SettingsRoute
 import com.tofiq.mvi_imdb.ui.theme.AnimationSpecs
 import com.tofiq.mvi_imdb.ui.theme.VibrantBlue
+import com.tofiq.mvi_imdb.ui.theme.VibrantGreen
 import com.tofiq.mvi_imdb.ui.theme.VibrantPink
 import com.tofiq.mvi_imdb.ui.theme.VibrantPurple
 
@@ -80,7 +85,9 @@ private data class BottomNavItem(
  * - Smooth 60fps animations
  */
 @Composable
-fun MovieApp() {
+fun MovieApp(
+    settingsDataStore: SettingsDataStore
+) {
     val backStack = rememberNavBackStack(HomeRoute)
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
 
@@ -105,6 +112,13 @@ fun MovieApp() {
             unselectedIcon = Icons.Outlined.FavoriteBorder,
             route = FavoritesRoute,
             accentColor = VibrantPink
+        ),
+        BottomNavItem(
+            title = "Settings",
+            selectedIcon = Icons.Filled.Settings,
+            unselectedIcon = Icons.Outlined.Settings,
+            route = SettingsRoute,
+            accentColor = VibrantGreen
         )
     )
 
@@ -131,7 +145,8 @@ fun MovieApp() {
                 .padding(innerPadding),
             backStack = backStack,
             onNavigate = { route -> backStack.add(route) },
-            onBack = { backStack.removeLastOrNull() }
+            onBack = { backStack.removeLastOrNull() },
+            settingsDataStore = settingsDataStore
         )
     }
 }

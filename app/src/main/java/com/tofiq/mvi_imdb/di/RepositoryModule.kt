@@ -1,7 +1,9 @@
 package com.tofiq.mvi_imdb.di
 
 import com.tofiq.mvi_imdb.data.repository.MovieRepositoryImpl
+import com.tofiq.mvi_imdb.data.repository.SettingsRepositoryImpl
 import com.tofiq.mvi_imdb.domain.repository.MovieRepository
+import com.tofiq.mvi_imdb.domain.repository.SettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -22,4 +24,10 @@ abstract class RepositoryModule {
     abstract fun bindMovieRepository(
         movieRepositoryImpl: MovieRepositoryImpl
     ): MovieRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettingsRepository(
+        settingsRepositoryImpl: SettingsRepositoryImpl
+    ): SettingsRepository
 }

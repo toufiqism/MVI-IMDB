@@ -7,11 +7,13 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.tofiq.mvi_imdb.data.local.SettingsDataStore
 import com.tofiq.mvi_imdb.presentation.screens.castmovies.CastMoviesScreen
 import com.tofiq.mvi_imdb.presentation.screens.detail.DetailScreen
 import com.tofiq.mvi_imdb.presentation.screens.favorites.FavoritesScreen
 import com.tofiq.mvi_imdb.presentation.screens.home.HomeScreen
 import com.tofiq.mvi_imdb.presentation.screens.search.SearchScreen
+import com.tofiq.mvi_imdb.presentation.screens.settings.SettingsScreen
 
 /**
  * Main navigation composable for the app using Navigation3.
@@ -25,7 +27,8 @@ fun AppNavigation(
     modifier: Modifier = Modifier,
     backStack: NavBackStack<NavKey> = rememberNavBackStack(HomeRoute),
     onNavigate: (NavRoute) -> Unit = { backStack.add(it) },
-    onBack: () -> Unit = { backStack.removeLastOrNull() }
+    onBack: () -> Unit = { backStack.removeLastOrNull() },
+    settingsDataStore: SettingsDataStore
 ) {
     NavDisplay(
         backStack = backStack,
@@ -40,7 +43,8 @@ fun AppNavigation(
                 HomeScreen(
                     onMovieClick = { movieId ->
                         onNavigate(DetailRoute(movieId))
-                    }
+                    },
+                    settingsDataStore = settingsDataStore
                 )
             }
 
@@ -48,7 +52,8 @@ fun AppNavigation(
                 SearchScreen(
                     onMovieClick = { movieId ->
                         onNavigate(DetailRoute(movieId))
-                    }
+                    },
+                    settingsDataStore = settingsDataStore
                 )
             }
 
@@ -56,7 +61,8 @@ fun AppNavigation(
                 FavoritesScreen(
                     onMovieClick = { movieId ->
                         onNavigate(DetailRoute(movieId))
-                    }
+                    },
+                    settingsDataStore = settingsDataStore
                 )
             }
 
@@ -83,6 +89,10 @@ fun AppNavigation(
                         onNavigate(DetailRoute(movieId))
                     }
                 )
+            }
+
+            entry<SettingsRoute> {
+                SettingsScreen()
             }
         }
     )
